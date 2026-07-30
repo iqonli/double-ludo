@@ -10,6 +10,8 @@ Original game by PerryDing 2025-07-23
 
 本项目使用[MIT许可证](LICENSE.md)。Copyright © 2026 IQ Online Studio.
 
+[点击此处直接游玩](https://iqonli.github.io/double-ludo/)
+
 <p align="center">
   <img src="public/board-preview.png" alt="双飞棋盘" width="560">
 </p>
@@ -35,7 +37,7 @@ Original game by PerryDing 2025-07-23
 
 ## 提示
 
-1. 本项目提供的网页实现同时支持本地对战和局域网对战。本地对战可以直接打开`public/game.html`；局域网服务器需要Node.js 18（[前往下载](https://nodejs.org)）或更高版本。
+1. 本项目提供的网页实现同时支持本地对战和局域网对战。本地对战可以直接打开`public/game.html`，或[点击此处直接游玩](https://iqonli.github.io/double-ludo/)；局域网服务器需要Node.js 18（[前往下载](https://nodejs.org)）或更高版本。
 2. 局域网服务器主要面向同一局域网，或虚拟局域网内的熟人局。五位登录码用于区分房间和玩家，不提供安全防护。
 3. 服务端会在`6666–8888`中随机选择可用端口。Windows首次开服时，若系统询问防火墙选项，请允许专用网络访问。
 4. 对局文件是普通JSON，可以手工修改。恢复时只做基本结构检查，不提供反作弊功能。
@@ -55,7 +57,7 @@ cd double-ludo
 
 ### 本地对战
 
-1. 直接打开`public/game.html`。
+1. 直接打开`public/game.html`，或[点击此处直接游玩](https://iqonli.github.io/double-ludo/)。
 2. 选择“本地对战”。
 3. 选择`双飞`或`极速双飞`；玩家A选择两种颜色，剩余两种颜色自动归于玩家B。
 4. 根据需要进行设置。
