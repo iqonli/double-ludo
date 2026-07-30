@@ -1,0 +1,18 @@
+{
+  "ok": true,
+  "checks": {
+    "finishCountCentered": true,
+    "finishCountUpright": true,
+    "bothSeeRollButtons": true,
+    "ownRollButtonsGreen": true,
+    "onlyOwnRollEnabled": true,
+    "bCannotReadyBeforeRoll": true,
+    "aRollOneShot": true,
+    "bRollOneShot": true,
+    "modeRoundTripResetsRolls": true,
+    "bCanReadyAfterOwnRoll": true,
+    "speedGameStartsForBoth": true
+  },
+  "errors": [],
+  "serverLog": "====================================================================\n双飞 v0.41 多房间局域网服务器已启动\n监听端口（已指定）：7890\n管理页面：http://127.0.0.1:7890/admin\n本机游戏：http://127.0.0.1:7890/game.html\n也可直接双击 public/game.html，再输入服务器IP、端口和登录码。\n局域网游戏：http://172.26.36.26:7890/game.html  (eth0)\n当前房间数：1\n自动存档：/tmp/double-flight-v040-d0b8wn5e/autosave.json\n====================================================================\n\n收到SIGTERM，正在保存并关闭服务器……\n"
+}

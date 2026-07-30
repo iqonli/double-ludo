@@ -1,0 +1,21 @@
+{
+  "name": "double-flight-v0.41-three-six-regret",
+  "version": "0.41.0",
+  "private": true,
+  "description": "双飞多房间局域网短轮询服务器与本地/联机双模式网页",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test tests/*.test.js",
+    "test:browser:local": "python tests/browser_local_smoke.py",
+    "test:browser:lan": "python tests/browser_lan_smoke.py",
+    "test:browser:fixes": "python tests/browser_v037_targeted.py",
+    "test:browser:v040": "python tests/browser_v040_targeted.py",
+    "test:all": "npm test && npm run test:browser:local && npm run test:browser:lan && npm run test:browser:fixes && npm run test:browser:v040 && npm run test:restart && npm run test:random-port",
+    "test:restart": "python tests/server_restart_smoke.py",
+    "test:random-port": "python tests/random_port_smoke.py"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}
