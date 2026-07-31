@@ -8,7 +8,7 @@ Original game by PerryDing 2025-07-23
 
 项目仓库：https://github.com/iqonli/double-ludo
 
-本项目使用[MIT许可证](LICENSE.md)。Copyright © 2026 IQ Online Studio.
+本项目使用[MIT许可证](LICENSE)。Copyright © 2026 IQ Online Studio.
 
 [点击此处直接游玩](https://iqonli.github.io/double-ludo/)
 
@@ -58,7 +58,7 @@ cd double-ludo
 ### 本地对战
 
 1. 直接打开`public/game.html`，或[点击此处直接游玩](https://iqonli.github.io/double-ludo/)。
-2. 选择“本地对战”。
+2. 选择`本地对战`。
 3. 选择`双飞`或`极速双飞`；玩家A选择两种颜色，剩余两种颜色自动归于玩家B。
 4. 根据需要进行设置。
 5. 点击`开始游戏`。
@@ -88,7 +88,7 @@ Linux或macOS可以运行：
 服务端启动后会输出类似内容：
 
 ```text
-双飞 v0.40 多房间局域网服务器已启动
+双飞 v0.42.1 多房间局域网服务器已启动
 本次随机端口：6666
 管理页面：http://127.0.0.1:6666/admin
 本机游戏：http://127.0.0.1:6666/game.html
@@ -666,7 +666,7 @@ npm run test:all
 
 ## 开源说明
 
-本项目使用[MIT许可证](LICENSE.md)。你可以使用、修改、复制和分发源码，但应保留许可证和版权声明。
+本项目使用[MIT许可证](LICENSE)。你可以使用、修改、复制和分发源码，但应保留许可证和版权声明。
 
 项目中的两个AI模型以网页推理权重形式发布，训练与部署信息请见[`public/MODEL_INFO.md`](public/MODEL_INFO.md)。
 
