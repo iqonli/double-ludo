@@ -1106,9 +1106,10 @@
       if (!Number.isInteger(numericAction) || numericAction < 0 || numericAction >= ActionProtocol.ACTION_SPACE) {
         throw new Error('动作编号无效。');
       }
-      // 联机客户端只做宽松预判。复杂阶段、交换组合和边界规则全部由服务端权威判断，
-      // 避免本地动画状态或临时选择状态错杀合法操作。
-      return await lanClient.action(numericAction, lanActionId());
+      // 联机客户端只做宽松预判。交换动作只规范化两种颜色的编码顺序；
+      // 复杂阶段、交换组合和边界规则仍全部由服务端权威判断。
+      const normalizedAction = ActionProtocol.normalizeSwapAction(authoritative, numericAction);
+      return await lanClient.action(normalizedAction, lanActionId());
     } catch (error) {
       if (error.code === 'STALE_STATE' && error.payload && error.payload.details) applyLanPayload(error.payload.details);
       showError(error);
@@ -2792,8 +2793,7 @@
       el.victoryText.textContent = '残局结束。';
       el.continueGame.classList.add('hidden');
     } else {
-      const number = engine.winner === 'A' ? 1 : 2;
-      el.victoryText.textContent = `玩家${number}获胜！！！！！！`;
+      el.victoryText.textContent = `${engine.getPlayer(engine.winner).name}获胜！！！！！！`;
       el.continueGame.classList.remove('hidden');
     }
     el.victoryModal.classList.remove('hidden');
@@ -3452,12 +3452,16 @@
       node.dataset.pieceId = piece.id;
       node.setAttribute('aria-label', engine.pieceLabel(piece));
       node.textContent = '';
+      const visual = document.createElement('span');
+      visual.className = 'piece-visual';
+      visual.setAttribute('aria-hidden', 'true');
       if (isProtectedPiece) {
         const ring = document.createElement('span');
         ring.className = 'protected-ring';
         ring.setAttribute('aria-hidden', 'true');
-        node.appendChild(ring);
+        visual.appendChild(ring);
       }
+      node.appendChild(visual);
       el.pieceLayer.insertBefore(node, el.previewPiece);
     });
   }

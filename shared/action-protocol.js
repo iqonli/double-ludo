@@ -37,6 +37,27 @@
     return 20 + globalPieceIndex(firstPieceId) * 16 + globalPieceIndex(secondPieceId);
   }
 
+  // Swap pairs are logically unordered, but the model/action protocol stores only
+  // one direction: the piece whose colour appears first in the current player's
+  // colour list must occupy the high 4 bits. Normalize reverse click order without
+  // expanding the legal action set or changing the trained AI action mapping.
+  function normalizeSwapAction(engine, actionCode) {
+    const action = ensureActionCode(actionCode);
+    if (!engine || action < 20 || action > 275) return action;
+    const packed = action - 20;
+    const firstId = pieceIdFromGlobal(Math.floor(packed / 16));
+    const secondId = pieceIdFromGlobal(packed % 16);
+    const firstPiece = engine.getPiece(firstId);
+    const secondPiece = engine.getPiece(secondId);
+    const player = engine.getCurrentPlayer();
+    const colors = player && Array.isArray(player.colors) ? player.colors : [];
+    if (!firstPiece || !secondPiece || firstPiece.color === secondPiece.color) return action;
+    const firstOrder = colors.indexOf(firstPiece.color);
+    const secondOrder = colors.indexOf(secondPiece.color);
+    if (firstOrder < 0 || secondOrder < 0 || firstOrder <= secondOrder) return action;
+    return swapAction(secondId, firstId);
+  }
+
   function legalActions(engine) {
     if (!engine || engine.gameOver || engine.phase === 'gameOver' || engine.pendingDefeat) return [];
     const actions = [];
@@ -115,9 +136,10 @@
 
   function executeAction(engine, actionCode, context) {
     const ctx = context || {};
-    const action = ensureActionCode(actionCode);
+    const requestedAction = ensureActionCode(actionCode);
+    const action = normalizeSwapAction(engine, requestedAction);
     const legal = legalActions(engine);
-    if (!legal.includes(action)) throw new Error(`当前局面不允许动作 ${action}`);
+    if (!legal.includes(action)) throw new Error(`当前局面不允许动作 ${requestedAction}`);
 
     const randomDie = typeof ctx.randomDie === 'function'
       ? ctx.randomDie
@@ -225,6 +247,7 @@
     globalPieceIndex,
     pieceIdFromGlobal,
     swapAction,
+    normalizeSwapAction,
     legalActions,
     stateHash,
     fnv1a32,

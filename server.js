@@ -217,7 +217,7 @@ function adminHtml() {
 </div>
 <input id="importFile" class="hidden" type="file" accept="application/json,.json">
 </main>
-<div id="aboutModal" class="admin-modal hidden"><div class="admin-modal-card"><h2>关于</h2><p>by IQ Online Studio, github.com/iqonli/double-ludo</p><p>本项目源码使用MIT许可证开源。Copyright © 2026 IQ Online Studio.</p><div class="admin-modal-actions"><button id="closeAboutButton" class="primary">关闭</button></div></div></div>
+<div id="aboutModal" class="admin-modal hidden"><div class="admin-modal-card"><h2>关于</h2><p>by IQ Online Studio, github.com/iqonli/double-ludo</p><p>本项目使用MIT许可证。Copyright © 2026 IQ Online Studio.</p><div class="admin-modal-actions"><button id="closeAboutButton" class="primary">关闭</button></div></div></div>
 <script>
 const $=id=>document.getElementById(id);let latest=null;let selectedRoomId=null;let pendingImportRoomId=null;let chatSendKeyMode='enter';let lastChatByRoom=new Map();let unreadByRoom=new Map();let followByRoom=new Map();let lastNotice='';
 async function api(path,body){const options=body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)};const response=await fetch(path,options);let data=null;try{data=await response.json()}catch(_){data=null}if(!response.ok)throw new Error(data&&data.message?data.message:'HTTP '+response.status);return data}
