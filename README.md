@@ -13,8 +13,9 @@ Original game by PerryDing 2025-07-23
 [点击此处直接游玩](https://iqonli.github.io/double-ludo/)
 
 <p align="center">
-  <img src="public/board-preview.png" alt="双飞棋盘" width="560">
+  <img src="public/board-preview.png" alt="双飞棋盘" width="512">
 </p>
+
 
 ## 介绍
 
@@ -34,6 +35,11 @@ Original game by PerryDing 2025-07-23
 - 丝滑的动画
 - 对局导出、恢复和服务端自动存档
 - 可旋转棋盘、可拖动左右栏和可调高度的聊天卡片
+
+<p align="center">
+  <img src="icon/double-ludo-icon-white-effective1228.8-total2048.svg" alt="icon" style="zoom:20%;">
+</p>
+
 
 ## 提示
 
