@@ -51,7 +51,7 @@ assert(game.includes('undoPendingDefeat()'), '三连6弹窗应支持十次反悔
 assert(game.includes("stages.push({ type: 'move', events: [last] })"), '普通骰子移动应合并为一个单步阶段');
 assert(game.includes('await delay(timing.loopWaitMs)'), '幽灵棋子循环之间应使用可调间隔');
 assert(game.includes('overlap-expanded') && css.includes('opacity: .80'), '叠放棋子应支持80%透明及悬停分散');
-assert(game.includes('玩家${number}获胜！！！！！！'), '获胜弹窗文案应符合要求');
+assert(game.includes('`${engine.getPlayer(engine.winner).name}获胜！！！！！！`'), '获胜弹窗应使用玩家A/玩家B名称');
 assert(game.includes('analyzePendingSwap()'));
 const drawBoardSource = game.slice(game.indexOf('function drawBoard()'), game.lastIndexOf('\n})();'));
 assert(!drawBoardSource.includes("make('text'"), '棋盘内不应绘制文字');
@@ -158,7 +158,7 @@ assert(html.includes('id="lanChatUnread"') && html.includes('id="setupLanChatUnr
 assert(css.includes('@keyframes selectable-white') && css.includes('scale(1.10)'), '待选棋子应恢复白光与缩放动效');
 
 assert(html.includes('id="setupAboutButton"') && html.includes('id="gameAboutButton"') && html.includes('id="aboutModal"'), '游戏准备页和游戏顶栏应包含关于入口与统一弹窗');
-assert(html.includes('by IQ Online Studio, github.com/iqonli/double-ludo') && html.includes('本项目源码使用MIT许可证开源。Copyright © 2026 IQ Online Studio.'), '关于弹窗文字应完整');
+assert(html.includes('by IQ Online Studio, github.com/iqonli/double-ludo') && html.includes('本项目使用MIT许可证。Copyright © 2026 IQ Online Studio.'), '关于弹窗文字应完整');
 assert(game.includes('function submitLobbyProtection()') && game.includes('pausePollingBeforeRequest(600)') && game.includes('当前设置未提交，请点击提交'), '联机保护应采用本地草稿、红字提示与暂停轮询后提交');
 assert(game.includes('dataset.renderSignature') && game.includes('Latency/status callbacks run for every HTTP request'), '保护控件应保持稳定DOM，状态回调不得每100ms重建准备页');
 assert(game.includes('setLanPlayerBReady') && game.includes('等待玩家B准备') && network.includes('setLobbyReady'), '玩家B应确认准备后玩家A才能开局');
@@ -180,7 +180,7 @@ assert(game.includes('const initialHeight = Number.isFinite(saved) && saved >= 2
 assert(html.includes('v0.42.1 LAN'), '准备页版本号应为v0.42.1 LAN');
 assert(!html.includes('标准飞行棋底盘，本地 1v1。'), '准备页不应保留旧副标题');
 assert(html.includes('class="setup-game-icon"') && html.includes('class="header-game-icon"'), '准备页和游戏顶栏应内嵌项目图标');
-assert(css.includes('width: 76px') && css.includes('width: 32px'), '项目图标尺寸应为76px和32px');
+assert(css.includes('.setup-game-icon { width: 64px; height: 64px; flex: 0 0 64px;') && css.includes('.header-game-icon { width: 32px; height: 32px;'), '开始页项目图标应为64px，游戏顶栏图标应保持32px');
 assert(html.indexOf('id="backToGame"') < html.indexOf('id="setupAboutButton"'), '返回原局应位于关于左侧');
 assert(html.includes('rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,'), '游戏页应内嵌标签页图标');
 assert(!game.includes('__doubleFlightDebug'), '发行版不应保留冒烟测试调试接口');

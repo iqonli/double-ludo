@@ -44,7 +44,7 @@ test('服务端管理页包含关于按钮和MIT声明', () => {
   assert(serverSource.includes('.admin-modal-card h2{margin:0 0 18px;text-align:left}'));
   assert(serverSource.includes("pathname === '/api/lobby-ready'"));
   assert(serverSource.includes('by IQ Online Studio, github.com/iqonli/double-ludo'));
-  assert(serverSource.includes('本项目源码使用MIT许可证开源。Copyright © 2026 IQ Online Studio.'));
+  assert(serverSource.includes('本项目使用MIT许可证。Copyright © 2026 IQ Online Studio.'));
 });
 
 

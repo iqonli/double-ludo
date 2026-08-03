@@ -399,8 +399,8 @@ button:disabled { cursor: not-allowed; opacity: .43; }
 }
 .setup-heading { min-height: 92px; padding: 8px 20px; display: flex; align-items: center; border-bottom: 1px solid var(--border); }
 .setup-heading h1 { margin: 0; font-size: 32px; letter-spacing: -1.2px; line-height: 1.1; }
-.setup-game-icon { width: 76px; height: 76px; flex: 0 0 76px; display: inline-flex; align-items: center; justify-content: center; }
-.setup-game-icon svg { display: block; width: 76px; height: 76px; }
+.setup-game-icon { width: 64px; height: 64px; flex: 0 0 64px; display: inline-flex; align-items: center; justify-content: center; }
+.setup-game-icon svg { display: block; width: 64px; height: 64px; }
 .setup-title-copy { min-width: 0; }
 .version-badge { padding: 6px 9px; border-radius: 8px; background: var(--panel-2); color: var(--muted); font-size: 10px; }
 .setup-section { padding: 17px 26px; border-bottom: 1px solid var(--border); }
@@ -812,7 +812,7 @@ body.pending-confirmation .piece { cursor: default !important; }
   .setup-title-row { gap: 10px; }
   .setup-heading { min-height: 84px; padding-top: 4px; padding-bottom: 4px; }
   .setup-heading h1 { font-size: 25px; }
-  .setup-game-icon, .setup-game-icon svg { width: 76px; height: 76px; }
+  .setup-game-icon, .setup-game-icon svg { width: 64px; height: 64px; }
 }
 
 /* LAN connection */
