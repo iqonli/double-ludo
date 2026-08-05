@@ -120,6 +120,9 @@ assert(html.indexOf('class="color-test-panel"') < html.indexOf('</main>'), '调�
 assert(css.includes('.left-panel { grid-column: 1; grid-row: 1;') && css.includes('.board-panel { grid-column: 1; grid-row: 2;') && css.includes('.right-panel { grid-column: 1; grid-row: 3;') && css.includes('.log-panel { grid-column: 1; grid-row: 4;') && css.includes('.color-test-panel { grid-column: 1; grid-row: 5;'), '窄屏应按玩家信息、棋盘、回合交互、对局记录、调色测试顺序排列');
 assert(html.includes('class="setup-scroll-surface"'), '开始页应使用独立的单一滚动容器');
 assert(css.includes('#setupOverlay .setup-scroll-surface') && css.includes('touch-action: pan-y pinch-zoom') && css.includes('overflow-y: auto'), '开始页标题、正文和页脚应共享鼠标与触控滚动面');
+assert(html.indexOf('id="setupLanChatPanel"') > html.indexOf('class="setup-scroll-surface"'), '联机准备聊天应位于开始卡片的统一滚动面内');
+assert(css.includes('LAN setup scroll correction') && css.includes('height: auto !important') && css.includes('.setup-lan-chat-panel .lan-chat-resize-handle'), '窄屏联机准备页应合并聊天卡并取消第二滚动面');
+
 console.log('ui static tests passed');
 
 assert(html.includes('class="log-panel panel-column"'), '对局记录应拆为独立面板');

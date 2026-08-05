@@ -1392,3 +1392,84 @@ body.resizing-chat-panel, body.resizing-chat-panel * { cursor: ns-resize !import
 body:not(.lan-mode) #setupOverlay:not(.hidden) {
   overflow: hidden;
 }
+
+
+/* v0.42.2 LAN setup scroll correction.
+   The setup chat now lives inside the same setup scroll surface. On wide
+   desktop screens it keeps the original floating-left appearance; on narrow
+   containers it becomes an in-flow sub-card so wheel, trackpad and touch
+   gestures never fall back to a second overlay scroller. */
+#setupOverlay:not(.hidden),
+body.lan-mode #setupOverlay:not(.hidden) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  place-items: center;
+  gap: 0;
+  overflow: hidden;
+}
+#setupOverlay .setup-card {
+  grid-area: 1 / 1;
+  justify-self: center;
+}
+
+@media (min-width: 1101px) and (min-height: 721px) {
+  body.lan-mode #setupOverlay:not(.hidden) .setup-lan-chat-panel {
+    display: grid;
+    position: fixed;
+    left: 18px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: min(320px, calc(100vw - 36px));
+    height: var(--setup-chat-height, auto);
+    max-height: calc(100dvh - 48px);
+    margin: 0;
+  }
+}
+
+@media (max-width: 1100px), (max-height: 720px) {
+  body.lan-mode #setupOverlay:not(.hidden) .setup-lan-chat-panel {
+    display: grid;
+    position: relative;
+    inset: auto;
+    transform: none;
+    width: auto;
+    min-width: 0;
+    height: auto !important;
+    min-height: 0;
+    max-height: none;
+    margin: 16px 26px;
+    align-self: stretch;
+    box-shadow: none;
+    grid-template-rows: auto minmax(150px, min(32dvh, 260px)) auto auto auto;
+    touch-action: pan-y pinch-zoom;
+  }
+  body.lan-mode #setupOverlay:not(.hidden) .setup-lan-chat-panel::before {
+    box-shadow: none;
+  }
+  body.lan-mode #setupOverlay:not(.hidden) .setup-lan-chat-panel .lan-chat-log-wrap,
+  body.lan-mode #setupOverlay:not(.hidden) .setup-lan-chat-panel .lan-chat-log {
+    min-height: 0;
+    height: 100%;
+  }
+  body.lan-mode #setupOverlay:not(.hidden) .setup-lan-chat-panel .lan-chat-resize-handle {
+    display: none;
+  }
+  body.lan-mode #setupOverlay:not(.hidden) .setup-scroll-surface,
+  body.lan-mode #setupOverlay:not(.hidden) .setup-scroll-surface > * {
+    touch-action: pan-y pinch-zoom;
+  }
+}
+
+@media (max-width: 620px) {
+  body.lan-mode #setupOverlay:not(.hidden) .setup-lan-chat-panel {
+    margin: 12px;
+    grid-template-rows: auto minmax(132px, min(30dvh, 220px)) auto auto auto;
+  }
+}
+
+@media (max-width: 380px), (max-height: 560px) {
+  body.lan-mode #setupOverlay:not(.hidden) .setup-lan-chat-panel {
+    margin: 10px;
+    grid-template-rows: auto minmax(112px, min(27dvh, 180px)) auto auto auto;
+  }
+}

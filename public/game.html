@@ -10,19 +10,6 @@
 </head>
 <body>
   <div id="setupOverlay" class="overlay">
-      <section id="setupLanChatPanel" class="lan-chat-panel setup-lan-chat-panel" aria-labelledby="setupLanChatTitle">
-        <header class="lan-chat-heading">
-          <h3 id="setupLanChatTitle">联机聊天</h3>
-          <span id="setupLanChatCount">0</span>
-        </header>
-        <div class="lan-chat-log-wrap"><div id="setupLanChatLog" class="lan-chat-log" role="log" aria-live="polite" aria-relevant="additions"></div><button type="button" id="setupLanChatUnread" class="lan-chat-unread hidden" aria-label="滚动到最新消息">未读 0</button></div>
-        <label class="lan-chat-input-label" for="setupLanChatInput">消息</label>
-        <textarea id="setupLanChatInput" class="lan-chat-input" rows="3" maxlength="2000" placeholder=""></textarea>
-        <div class="lan-chat-actions">
-          <button type="button" id="setupLanChatHint" class="ghost-btn lan-chat-mode-button">当前：Enter发送</button>
-          <button type="button" id="setupLanChatSend" class="primary-btn">发送</button>
-        </div>
-      </section>
     <section class="setup-card" aria-labelledby="setupTitle">
       <div class="setup-scroll-surface">
       <header class="setup-heading">
@@ -61,6 +48,20 @@
             <button type="button" id="lanSmartApplyButton" class="ghost-btn">输入</button>
           </div>
           <div id="lanConnectionStatus" class="setup-summary">尚未连接。</div>
+        </div>
+      </section>
+
+      <section id="setupLanChatPanel" class="lan-chat-panel setup-lan-chat-panel" aria-labelledby="setupLanChatTitle">
+        <header class="lan-chat-heading">
+          <h3 id="setupLanChatTitle">联机聊天</h3>
+          <span id="setupLanChatCount">0</span>
+        </header>
+        <div class="lan-chat-log-wrap"><div id="setupLanChatLog" class="lan-chat-log" role="log" aria-live="polite" aria-relevant="additions"></div><button type="button" id="setupLanChatUnread" class="lan-chat-unread hidden" aria-label="滚动到最新消息">未读 0</button></div>
+        <label class="lan-chat-input-label" for="setupLanChatInput">消息</label>
+        <textarea id="setupLanChatInput" class="lan-chat-input" rows="3" maxlength="2000" placeholder=""></textarea>
+        <div class="lan-chat-actions">
+          <button type="button" id="setupLanChatHint" class="ghost-btn lan-chat-mode-button">当前：Enter发送</button>
+          <button type="button" id="setupLanChatSend" class="primary-btn">发送</button>
         </div>
       </section>
 
