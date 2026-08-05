@@ -1,5 +1,7 @@
 # Double Ludo 部署到 Render
 
+> 由ChatGPT 5.6 Sol High撰写
+
 本项目的同一份`public/game.html`可以连接本地局域网服务器、Render云端服务器或其他兼容服务器。Render模式提供公开账号开房页、在线登录码、内存房间、长轮询和管理员认证。
 
 ## 一、部署前准备

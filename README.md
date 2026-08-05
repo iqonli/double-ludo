@@ -10,7 +10,9 @@ Original game by PerryDing 2025-07-23
 
 本项目使用[MIT许可证](LICENSE)。Copyright © 2026 IQ Online Studio.
 
-[点击此处直接游玩](https://iqonli.github.io/double-ludo/)
+[点击此处打开联机服务器网站](https://dlol.onrender.com/) *提示：本服务器部署于免费Render服务，服务器空闲15分钟后会自动休眠。休眠后，首次启动需要约1分钟时间。*
+
+[点击此处打开github.io的演示(无服务器联机功能)](https://iqonli.github.io/double-ludo/)
 
 <p align="center">
   <img src="public/board-preview.png" alt="双飞棋盘" width="512">
@@ -43,17 +45,26 @@ Original game by PerryDing 2025-07-23
 
 ## 提示
 
-1. 本项目提供的网页实现同时支持本地对战和联机对战。本地对战可以直接打开`public/game.html`，或[点击此处直接游玩](https://iqonli.github.io/double-ludo/)；局域网服务器需要Node.js 18（[前往下载](https://nodejs.org)）或更高版本。
-2. 本地服务器继续使用五位数字登录码；Render在线服务器使用“5位数字+1位字母”登录码，并提供账号开房、每IP账号归属限制和失败登录限速。
-3. 服务端会在`6666–8888`中随机选择可用端口。Windows首次开服时，若系统询问防火墙选项，请允许专用网络访问。
-4. 对局文件是普通JSON，可以手工修改。恢复时只做基本结构检查，不提供反作弊功能。
-5. 《双飞》的规则边界较多。发现网页行为与本文不一致时，请提Issue并附上对局文件、操作步骤和浏览器控制台信息。
+1. 本README文档部分由ChatGPT 5.6 Sol High撰写。
+2. 本项目提供的网页实现同时支持本地对战和联机对战。本地对战可以直接打开`public/game.html`，局域网、联机服务器需要Node.js 18（[前往下载](https://nodejs.org)）或更高版本。
+3. 本地服务端使用五位数字登录码，Render在线服务器使用五位数字+一位字母的登录码，并提供账号开房、每IP账号归属限制和失败登录限速。
+4. 本地服务端会在`6666–8888`中随机选择可用端口。Windows首次开服时，若系统询问防火墙选项，请允许专用网络访问。
+5. 对局文件是普通JSON，可以手工修改。恢复时只做基本结构检查，不提供反作弊功能。
+6. 《双飞》的规则较多。发现网页行为与本文不一致时，请提Issue并附上对局文件、操作步骤和浏览器控制台信息。
 
 ## 安装与使用
 
+### 优先选择在线游玩
+
+[点击此处打开联机服务器网站](https://dlol.onrender.com/) *提示：本服务器部署于免费Render服务，服务器空闲15分钟后会自动休眠。休眠后，首次启动需要约1分钟时间。*
+
+[点击此处打开github.io的演示(无服务器联机功能)](https://iqonli.github.io/double-ludo/)
+
 ### 下载项目
 
-优先选择打包下载仓库，或克隆仓库：
+**优先选择打包下载仓库。**
+
+或克隆仓库：
 
 ```bash
 git clone https://github.com/iqonli/double-ludo.git
@@ -71,16 +82,14 @@ cd double-ludo
 
 本地双飞可以为玩家A、玩家B分别启用人机，极速双飞暂不启用人机。
 
-### Render云端联机
+### Render服务器联机
 
-项目可以直接部署为Render Web Service。同一个`public/game.html`既能连接本地服务器，也能连接Render地址。云端开房、环境变量和管理员设置见[`RENDER_DEPLOY.md`](RENDER_DEPLOY.md)。
-
-玩家使用前应阅读[`PLAYER_NOTICE.md`](PLAYER_NOTICE.md)。在线模式的账号、房间、聊天和对局只保存在内存中，免费服务休眠、重启或重新部署后会全部清空。
+项目可以直接部署为Render Web Service。同一个`public/game.html`既能连接本地服务器，也能连接Render地址。云端开房、环境变量和管理员设置请见[`RENDER_DEPLOY.md`](RENDER_DEPLOY.md)。
 
 邀请链接格式类似：
 
 ```text
-https://dlol.onrender.com/game.html?port=54321U&URL=https%3A%2F%2Fdlol.onrender.com
+https://dlol.onrender.com/game.html?port=12345A&URL=https%3A%2F%2Fdlol.onrender.com
 ```
 
 打开后会自动切换到联机页面并尝试连接。游戏、开房和管理API遇到短暂404时，会按100ms×10、200ms×10、300ms×5的顺序重试，最后仍失败才显示404。
