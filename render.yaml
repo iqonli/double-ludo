@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: dlol
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/info
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: ONLINE_MODE
+        value: "true"
+      - key: PUBLIC_BASE_URL
+        value: https://dlol.onrender.com
+      - key: ALLOWED_ORIGINS
+        value: https://iqonli.github.io
+      - key: ALLOW_FILE_ORIGIN
+        value: "true"
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: IP_KEY_SECRET
+        generateValue: true
+      - key: ACCOUNT_KEY_SECRET
+        generateValue: true

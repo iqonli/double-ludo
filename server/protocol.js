@@ -52,10 +52,6 @@ function jsonBody(req, limit = 4 * 1024 * 1024) {
 function commonHeaders() {
   return {
     'Cache-Control': 'no-store',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-    'Access-Control-Allow-Private-Network': 'true',
     'Cross-Origin-Resource-Policy': 'cross-origin',
     'X-Content-Type-Options': 'nosniff'
   };

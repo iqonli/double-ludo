@@ -11,10 +11,22 @@
     }
   }
 
+  function defaultProtocol() {
+    if (typeof location !== 'undefined' && location.protocol === 'https:') return 'https:';
+    return 'http:';
+  }
+
+  function requestFetch(input, init) {
+    const retry = root.DoubleLudoRequestRetry;
+    if (retry && typeof retry.fetch === 'function') return retry.fetch(input, init);
+    return root.fetch(input, init);
+  }
+
   function normalizeBase(host, port) {
     let value = String(host || '').trim();
     const portText = String(port || '').trim();
-    if (!/^https?:\/\//i.test(value)) value = `http://${value}`;
+    if (!value && typeof location !== 'undefined' && /^https?:$/.test(location.protocol)) value = location.origin;
+    if (!/^https?:\/\//i.test(value)) value = `${defaultProtocol()}//${value}`;
     const url = new URL(value);
     if (portText) url.port = portText;
     url.pathname = '';
@@ -25,17 +37,21 @@
 
   class LanClient {
     constructor(options = {}) {
-      this.intervalMs = options.intervalMs || 500;
-      this.requestTimeoutMs = options.requestTimeoutMs || 5000;
+      this.intervalMs = options.intervalMs || 1000;
+      this.requestTimeoutMs = options.requestTimeoutMs || 10_000;
+      this.pollTimeoutMs = options.pollTimeoutMs || 35_000;
       this.baseUrl = '';
       this.sessionToken = '';
       this.player = null;
       this.version = -1;
       this.stateHash = 0;
       this.chatVersion = -1;
+      this.serverInstanceId = '';
       this.connected = false;
       this.running = false;
       this.pollPromise = null;
+      this.pollController = null;
+      this.pollAbortRequested = false;
       this.pollingPauseDepth = 0;
       this.failureCount = 0;
       this.onState = options.onState || (() => {});
@@ -44,13 +60,19 @@
       this.latencyMs = null;
     }
 
-    async request(path, body, allowNoContent = false) {
+    async request(path, body, allowNoContent = false, options = {}) {
       const controller = typeof AbortController === 'function' ? new AbortController() : null;
-      const timeout = controller ? setTimeout(() => controller.abort(), this.requestTimeoutMs) : null;
+      const isPoll = Boolean(options.poll);
+      const timeoutMs = Number(options.timeoutMs) || (isPoll ? this.pollTimeoutMs : this.requestTimeoutMs);
+      if (isPoll) {
+        this.pollController = controller;
+        this.pollAbortRequested = false;
+      }
+      const timeout = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
       let response;
       const startedAt = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
       try {
-        response = await fetch(`${this.baseUrl}${path}`, {
+        response = await requestFetch(`${this.baseUrl}${path}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body || {}),
@@ -58,10 +80,14 @@
           signal: controller ? controller.signal : undefined
         });
       } catch (error) {
+        if (error && error.name === 'AbortError' && isPoll && this.pollAbortRequested) {
+          throw new NetworkError('长轮询已取消', 0, 'POLL_ABORTED');
+        }
         const timeoutText = error && error.name === 'AbortError' ? '请求超时' : error.message;
         throw new NetworkError(`无法连接服务端：${timeoutText}`);
       } finally {
         if (timeout) clearTimeout(timeout);
+        if (isPoll && this.pollController === controller) this.pollController = null;
       }
       const endedAt = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
       this.latencyMs = Math.max(0, Math.round(endedAt - startedAt));
@@ -87,14 +113,20 @@
 
     apply(payload) {
       if (!payload) return null;
+      if (payload.serverInstanceId) {
+        if (this.serverInstanceId && this.serverInstanceId !== payload.serverInstanceId) {
+          const error = new NetworkError('服务器已重启或房间已过期，请重新加入房间', 401, 'SERVER_RESTARTED');
+          this.invalidateSession(error);
+          throw error;
+        }
+        this.serverInstanceId = payload.serverInstanceId;
+      }
       const incomingVersion = Number(payload.version);
       if (Number.isFinite(incomingVersion) && incomingVersion < this.version) return payload;
       if (Number.isFinite(incomingVersion)) this.version = incomingVersion;
       if (Number.isFinite(Number(payload.stateHash))) this.stateHash = Number(payload.stateHash);
       if (Number.isFinite(Number(payload.chatVersion))) this.chatVersion = Number(payload.chatVersion);
       if (payload.player) this.player = payload.player;
-      // The state callback is deliberately not awaited. Visual animation may run
-      // for seconds, while the polling loop and chat communication continue.
       try {
         const callbackResult = this.onState(payload);
         if (callbackResult && typeof callbackResult.catch === 'function') callbackResult.catch(error => console.error(error));
@@ -107,37 +139,43 @@
     async login(host, port, code) {
       this.stop();
       this.baseUrl = normalizeBase(host, port);
-      const payload = await this.request('/api/login', { code: String(code || '').trim() });
+      const payload = await this.request('/api/login', { code: String(code || '').trim().toUpperCase() });
       this.sessionToken = payload.sessionToken;
       this.player = payload.player;
       this.connected = true;
       this.failureCount = 0;
+      this.serverInstanceId = payload.serverInstanceId || '';
       this.apply(payload);
       this.start();
       return payload;
     }
 
     async sync(force = false) {
-      if (!this.connected || !this.sessionToken) throw new NetworkError('尚未登录局域网服务器', 401, 'SESSION_INVALID');
+      if (!this.connected || !this.sessionToken) throw new NetworkError('尚未登录联机服务器', 401, 'SESSION_INVALID');
       if (this.pollPromise) return this.pollPromise;
       this.pollPromise = this.request('/api/poll', {
         sessionToken: this.sessionToken,
         knownVersion: force ? -1 : this.version,
         knownChatVersion: force ? -1 : this.chatVersion
-      }, true).then(payload => this.apply(payload)).finally(() => { this.pollPromise = null; });
+      }, true, { poll: true, timeoutMs: this.pollTimeoutMs })
+        .then(payload => this.apply(payload))
+        .finally(() => { this.pollPromise = null; });
       return this.pollPromise;
     }
 
-    async pausePollingBeforeRequest(minimumMs = 550) {
+    abortPoll() {
+      if (!this.pollController) return;
+      this.pollAbortRequested = true;
+      try { this.pollController.abort(); } catch (_) {}
+    }
+
+    async pausePollingBeforeRequest() {
       this.pollingPauseDepth += 1;
-      try {
-        if (this.pollPromise) {
-          try { await this.pollPromise; } catch (_) {}
+      this.abortPoll();
+      if (this.pollPromise) {
+        try { await this.pollPromise; } catch (error) {
+          if (!error || error.code !== 'POLL_ABORTED') throw error;
         }
-        await new Promise(resolve => setTimeout(resolve, Math.max(500, Number(minimumMs) || 0)));
-      } catch (error) {
-        this.pollingPauseDepth = Math.max(0, this.pollingPauseDepth - 1);
-        throw error;
       }
     }
 
@@ -145,84 +183,30 @@
       this.pollingPauseDepth = Math.max(0, this.pollingPauseDepth - 1);
     }
 
-    async setLobbyConfig(config) {
-      const payload = await this.request('/api/lobby-config', { sessionToken: this.sessionToken, config });
-      return this.apply(payload);
-    }
-
-    async setLobbyReady(ready = true) {
-      const payload = await this.request('/api/lobby-ready', { sessionToken: this.sessionToken, ready: Boolean(ready) });
-      return this.apply(payload);
-    }
-
-    async rollLobbyOrder() {
-      const payload = await this.request('/api/lobby-order-roll', { sessionToken: this.sessionToken });
-      return this.apply(payload);
-    }
-
-    async startGame(config) {
-      const payload = await this.request('/api/start-game', { sessionToken: this.sessionToken, config });
-      return this.apply(payload);
-    }
+    async setLobbyConfig(config) { return this.apply(await this.request('/api/lobby-config', { sessionToken: this.sessionToken, config })); }
+    async setLobbyReady(ready = true) { return this.apply(await this.request('/api/lobby-ready', { sessionToken: this.sessionToken, ready: Boolean(ready) })); }
+    async rollLobbyOrder() { return this.apply(await this.request('/api/lobby-order-roll', { sessionToken: this.sessionToken })); }
+    async startGame(config) { return this.apply(await this.request('/api/start-game', { sessionToken: this.sessionToken, config })); }
 
     async action(actionCode, clientActionId) {
-      const payload = await this.request('/api/action', {
+      return this.apply(await this.request('/api/action', {
         sessionToken: this.sessionToken,
         clientActionId,
         expectedVersion: this.version,
         expectedStateHash: this.stateHash,
         actionCode
-      });
-      return this.apply(payload);
+      }));
     }
 
-    async sendChat(content) {
-      const payload = await this.request('/api/chat', {
-        sessionToken: this.sessionToken,
-        content: String(content || '')
-      });
-      return this.apply(payload);
-    }
-
-    async command(command) {
-      const payload = await this.request('/api/command', {
-        sessionToken: this.sessionToken,
-        command
-      });
-      return this.apply(payload);
-    }
-
-    async requestUndo() {
-      const payload = await this.request('/api/undo-request', {
-        sessionToken: this.sessionToken
-      });
-      return this.apply(payload);
-    }
-
-    async respondUndo(allow) {
-      const payload = await this.request('/api/undo-response', {
-        sessionToken: this.sessionToken,
-        allow: Boolean(allow)
-      });
-      return this.apply(payload);
-    }
-
-    async requestDefeatRegret() {
-      const payload = await this.request('/api/defeat-regret-request', {
-        sessionToken: this.sessionToken
-      });
-      return this.apply(payload);
-    }
-
-    async respondDefeatRegret(allow) {
-      const payload = await this.request('/api/defeat-regret-response', {
-        sessionToken: this.sessionToken,
-        allow: Boolean(allow)
-      });
-      return this.apply(payload);
-    }
+    async sendChat(content) { return this.apply(await this.request('/api/chat', { sessionToken: this.sessionToken, content: String(content || '') })); }
+    async command(command) { return this.apply(await this.request('/api/command', { sessionToken: this.sessionToken, command })); }
+    async requestUndo() { return this.apply(await this.request('/api/undo-request', { sessionToken: this.sessionToken })); }
+    async respondUndo(allow) { return this.apply(await this.request('/api/undo-response', { sessionToken: this.sessionToken, allow: Boolean(allow) })); }
+    async requestDefeatRegret() { return this.apply(await this.request('/api/defeat-regret-request', { sessionToken: this.sessionToken })); }
+    async respondDefeatRegret(allow) { return this.apply(await this.request('/api/defeat-regret-response', { sessionToken: this.sessionToken, allow: Boolean(allow) })); }
 
     async logout() {
+      this.abortPoll();
       if (this.connected && this.sessionToken) {
         try { await this.request('/api/logout', { sessionToken: this.sessionToken }); } catch (_) {}
       }
@@ -238,14 +222,17 @@
       this.version = -1;
       this.stateHash = 0;
       this.chatVersion = -1;
+      this.serverInstanceId = '';
       this.pollingPauseDepth = 0;
       this.failureCount = 0;
       if (wasConnected || error) this.onSessionInvalid(error);
     }
 
     nextDelay() {
-      if (this.failureCount <= 0) return this.intervalMs;
-      return Math.min(1500, Math.max(this.intervalMs, 100 * (2 ** Math.min(this.failureCount, 4))));
+      const schedule = [1000, 2000, 4000, 8000, 15000, 30000];
+      const base = schedule[Math.min(Math.max(this.failureCount - 1, 0), schedule.length - 1)];
+      const jitter = 0.85 + Math.random() * 0.3;
+      return Math.round(base * jitter);
     }
 
     start() {
@@ -261,12 +248,15 @@
             await this.sync(false);
             this.failureCount = 0;
             this.onStatus({ online: true });
+            continue;
           } catch (error) {
-            if (error.status === 401) return;
+            if (error && (error.status === 401 || error.code === 'SERVER_RESTARTED')) return;
+            if (error && error.code === 'POLL_ABORTED') continue;
             this.failureCount += 1;
-            this.onStatus({ online: false, error, retryInMs: this.nextDelay() });
+            const retryInMs = this.nextDelay();
+            this.onStatus({ online: false, error, retryInMs });
+            await new Promise(resolve => setTimeout(resolve, retryInMs));
           }
-          await new Promise(resolve => setTimeout(resolve, this.nextDelay()));
         }
       };
       loop();
@@ -274,6 +264,7 @@
 
     stop() {
       this.running = false;
+      this.abortPoll();
     }
   }
 

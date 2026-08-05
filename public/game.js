@@ -655,17 +655,44 @@
     return '';
   }
 
+  function parseInviteDetails(text) {
+    const source = String(text || '').trim();
+    let serverUrl = '';
+    let code = '';
+    let port = '';
+    const urls = source.match(/https?:\/\/[^\s，。；;]+/gi) || [];
+    for (const raw of urls) {
+      try {
+        const parsed = new URL(raw.replace(/[)\]}>]+$/, ''));
+        const queryCode = parsed.searchParams.get('port') || parsed.searchParams.get('code') || '';
+        const queryUrl = parsed.searchParams.get('URL') || parsed.searchParams.get('url') || '';
+        if (/^\d{5}(?:[A-HJ-KM-NP-Z]{1,2})?$/i.test(queryCode)) code = queryCode.toUpperCase();
+        if (queryUrl) serverUrl = queryUrl;
+        else if (!serverUrl) serverUrl = parsed.origin;
+        if (code || queryUrl) break;
+      } catch (_) {}
+    }
+    if (!serverUrl) {
+      const explicit = source.match(/(?:^|\s)([\w.-]+\.onrender\.com)(?=$|\s|[，。；;])/i)?.[1];
+      if (explicit) serverUrl = `https://${explicit}`;
+    }
+    if (!code) code = source.match(/(?:^|[^0-9A-Z])(\d{5}[A-HJ-KM-NP-Z]{1,2}|\d{5})(?![0-9A-Z])/i)?.[1]?.toUpperCase() || '';
+    const ip = parseIpv4(source);
+    if (!serverUrl && ip) serverUrl = ip;
+    if (ip || (!serverUrl && !urls.length)) port = source.match(/(?:^|\D)(\d{4})(?!\d)/)?.[1] || '';
+    return { serverUrl, code, port, ip };
+  }
+
   function applySmartLanInput() {
-    const text = String(el.lanSmartInput.value || '');
-    const ip = parseIpv4(text);
-    const port = text.match(/(?:^|\D)(\d{4})(?!\d)/)?.[1] || '';
-    const code = text.match(/(?:^|\D)(\d{5})(?!\d)/)?.[1] || '';
-    if (port) el.lanPort.value = port;
-    if (code) el.lanLoginCode.value = code;
-    if (ip) el.lanHost.value = ip;
-    const found = [ip && 'IP', port && '端口', code && '登录码'].filter(Boolean);
-    if (!found.length) showError(new Error('智能输入中未找到合法的IP、4位端口或5位登录码。'));
+    const details = parseInviteDetails(el.lanSmartInput.value);
+    if (details.serverUrl) el.lanHost.value = details.serverUrl;
+    if (details.port) el.lanPort.value = details.port;
+    else if (/^https?:\/\//i.test(details.serverUrl)) el.lanPort.value = '';
+    if (details.code) el.lanLoginCode.value = details.code;
+    const found = [details.serverUrl && '服务器地址', details.port && '端口', details.code && '登录码'].filter(Boolean);
+    if (!found.length) showError(new Error('智能输入中未找到合法的服务器地址、端口或登录码。'));
     else showError(new Error(`已填写：${found.join('、')}`));
+    return Boolean(found.length);
   }
 
   function validIpv4(value) {
@@ -701,12 +728,15 @@
     const controller = typeof AbortController === 'function' ? new AbortController() : null;
     const timer = controller ? window.setTimeout(() => controller.abort(), timeoutMs) : null;
     try {
-      const response = await fetch(`http://${ip}:${port}/api/info`, {
+      const requestFetch = window.DoubleLudoRequestRetry && window.DoubleLudoRequestRetry.fetch
+        ? window.DoubleLudoRequestRetry.fetch
+        : window.fetch.bind(window);
+      const response = await requestFetch(`http://${ip}:${port}/api/info`, {
         method: 'GET', cache: 'no-store', mode: 'cors', signal: controller ? controller.signal : undefined
-      });
+      }, { retry404: false });
       if (!response.ok) return false;
       const payload = await response.json();
-      return Boolean(payload && payload.name === 'double-flight-lan-server');
+      return Boolean(payload && ['double-flight-server', 'double-flight-lan-server'].includes(payload.name));
     } catch (_) {
       return false;
     } finally {
@@ -731,7 +761,7 @@
     if (lanSearching) return;
     const port = Number(el.lanPort.value);
     if (!Number.isInteger(port) || port < 1000 || port > 9999) {
-      showError(new Error('请先输入4位端口。'));
+      showError(new Error('自动搜索本地服务器前，请先输入4位端口。'));
       return;
     }
     lanSearching = true;
@@ -795,16 +825,22 @@
   }
 
   async function connectLan() {
-    const code = String(el.lanLoginCode.value || '').trim();
-    if (!/^\d{5}$/.test(code)) {
-      showError(new Error('登录码必须是5位数字。'));
+    const code = String(el.lanLoginCode.value || '').trim().toUpperCase();
+    if (!/^\d{5}(?:[A-HJ-KM-NP-Z]{1,2})?$/.test(code)) {
+      showError(new Error('登录码应为5位数字，或5位数字加1至2位字母（不使用I、L、O）。'));
       return;
     }
+    const host = String(el.lanHost.value || '').trim();
+    if (!host) {
+      showError(new Error('请输入服务器地址或IP。'));
+      return;
+    }
+    el.lanLoginCode.value = code;
     el.lanConnectButton.disabled = true;
     setLanStatus('正在连接……');
     try {
-      await lanClient.login(el.lanHost.value, el.lanPort.value, code);
-      try { localStorage.setItem('doubleFlightLastLanIp', String(el.lanHost.value || '').trim()); } catch (_) {}
+      await lanClient.login(host, el.lanPort.value, code);
+      try { localStorage.setItem('doubleFlightLastLanIp', host); } catch (_) {}
       renderSetup();
     } catch (error) {
       setLanStatus(error.message, 'offline');
@@ -812,6 +848,21 @@
     } finally {
       el.lanConnectButton.disabled = false;
     }
+  }
+
+  function applyInviteFromPageUrl() {
+    const params = new URLSearchParams(location.search);
+    const code = String(params.get('port') || params.get('code') || '').trim().toUpperCase();
+    if (!/^\d{5}(?:[A-HJ-KM-NP-Z]{1,2})?$/.test(code)) return false;
+    const serverUrl = String(params.get('URL') || params.get('url') || ((location.protocol === 'http:' || location.protocol === 'https:') ? location.origin : '')).trim();
+    if (!serverUrl) return false;
+    runtimeMode = 'lan';
+    el.lanHost.value = serverUrl;
+    el.lanPort.value = '';
+    el.lanLoginCode.value = code;
+    renderSetup();
+    window.setTimeout(() => connectLan(), 0);
+    return true;
   }
 
   function chatPanelRefs() {
@@ -876,7 +927,7 @@
       if (!lanChatMessages.length) {
         const empty = document.createElement('p');
         empty.className = 'lan-chat-empty';
-        empty.textContent = connected ? '暂无消息。' : '连接局域网服务器后可聊天。';
+        empty.textContent = connected ? '暂无消息。' : '连接服务器后可聊天。';
         ref.log.appendChild(empty);
       } else {
         lanChatMessages.forEach(message => {
@@ -1097,10 +1148,9 @@
     hidePreview();
     renderGame();
     try {
-      const latest = await lanClient.sync(true);
-      const authoritative = latest && latest.state ? createEngineFromSnapshot(latest.state) : engine;
-      if (!authoritative || latest && latest.roomStatus !== 'playing' || authoritative.currentPlayerId !== lanRole) {
-        throw new Error('同步后发现当前不是你的回合。');
+      const authoritative = engine;
+      if (!authoritative || lanRoomStatus !== 'playing' || authoritative.currentPlayerId !== lanRole) {
+        throw new Error('当前不是你的回合。');
       }
       const numericAction = Number(actionCode);
       if (!Number.isInteger(numericAction) || numericAction < 0 || numericAction >= ActionProtocol.ACTION_SPACE) {
@@ -1124,7 +1174,6 @@
     if (!isLanMode() || !lanConnected || interactionLocked) return;
     interactionLocked = true;
     try {
-      await lanClient.sync(true);
       await lanClient.command(command);
     } catch (error) {
       showError(error);
@@ -1488,14 +1537,16 @@
     });
 
     lanClient = new window.DoubleFlightNetwork.LanClient({
-      intervalMs: 500,
+      intervalMs: 1000,
+      requestTimeoutMs: 10000,
+      pollTimeoutMs: 35000,
       onState: applyLanPayload,
       onStatus: handleLanNetworkStatus,
       onSessionInvalid: handleLanSessionInvalid
     });
     if (location.protocol === 'http:' || location.protocol === 'https:') {
-      el.lanHost.value = location.hostname || '';
-      el.lanPort.value = location.port || '';
+      el.lanHost.value = location.origin || location.hostname || '';
+      el.lanPort.value = '';
     }
 
     buildTimingControls();
@@ -1509,6 +1560,7 @@
     initChatPanelResizers();
     initWorkspaceResizers();
     renderSetup();
+    applyInviteFromPageUrl();
   });
 
   function rgbString(value) {
@@ -1771,7 +1823,7 @@
     el.lanAutoSearchButton.addEventListener('click', autoSearchLanIp);
     el.lanSmartApplyButton.addEventListener('click', applySmartLanInput);
     el.lanLoginCode.addEventListener('input', () => {
-      el.lanLoginCode.value = el.lanLoginCode.value.replace(/\D/g, '').slice(0, 5);
+      el.lanLoginCode.value = el.lanLoginCode.value.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 7);
     });
     el.lanLoginCode.addEventListener('keydown', event => {
       if (event.key === 'Enter') connectLan();
@@ -2027,7 +2079,7 @@
       const bReadyInvalid = playerAColors.length !== 2 || launchValues.size === 0 || (speed && !orderRolls.B);
       el.startGame.disabled = bReadyInvalid || hasUnsubmittedProtection() || lanPlayerBReady || interactionLocked;
     } else {
-      el.startGame.textContent = lanPlayerBReady ? '开始局域网游戏' : '等待玩家B准备';
+      el.startGame.textContent = lanPlayerBReady ? '开始联机游戏' : '等待玩家B准备';
       el.startGame.disabled = baseInvalid || hasUnsubmittedProtection() || !lanPlayerBReady || interactionLocked;
     }
     el.launchSummary.classList.toggle('hidden', !showGameConfig);

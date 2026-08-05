@@ -12,7 +12,7 @@
   <div id="setupOverlay" class="overlay">
       <section id="setupLanChatPanel" class="lan-chat-panel setup-lan-chat-panel" aria-labelledby="setupLanChatTitle">
         <header class="lan-chat-heading">
-          <h3 id="setupLanChatTitle">局域网聊天</h3>
+          <h3 id="setupLanChatTitle">联机聊天</h3>
           <span id="setupLanChatCount">0</span>
         </header>
         <div class="lan-chat-log-wrap"><div id="setupLanChatLog" class="lan-chat-log" role="log" aria-live="polite" aria-relevant="additions"></div><button type="button" id="setupLanChatUnread" class="lan-chat-unread hidden" aria-label="滚动到最新消息">未读 0</button></div>
@@ -32,7 +32,7 @@
           </div>
         </div>
         <div class="setup-meta-actions">
-          <span class="version-badge">v0.42.1 LAN</span>
+          <span class="version-badge">v0.42.2 联机</span>
           <div class="setup-header-buttons">
             <button type="button" id="backToGame" class="ghost-btn setup-back-button hidden" aria-label="返回原局">← 返回原局</button>
             <button type="button" id="setupAboutButton" class="ghost-btn about-button">关于</button>
@@ -45,18 +45,18 @@
         <div class="section-title"><span class="step-number">00</span><h2>选择游戏方式</h2></div>
         <div class="segmented" id="runtimeButtons">
           <button type="button" data-runtime-mode="local" class="active">本地对战</button>
-          <button type="button" data-runtime-mode="lan">局域网对战</button>
+          <button type="button" data-runtime-mode="lan">联机对战</button>
         </div>
         <div id="lanConnectPanel" class="lan-connect-panel hidden">
           <div class="lan-connect-row">
-            <label class="lan-port-field"><span>端口</span><input id="lanPort" type="number" inputmode="numeric" min="6666" max="8888" placeholder="8406"></label>
-            <label class="lan-code-field"><span>五位登录码</span><input id="lanLoginCode" type="text" inputmode="numeric" pattern="[0-9]{5}" maxlength="5" autocomplete="one-time-code" placeholder="12345"></label>
+            <label class="lan-port-field"><span>端口（可选）</span><input id="lanPort" type="number" inputmode="numeric" min="1" max="65535" placeholder="8406"></label>
+            <label class="lan-code-field"><span>登录码</span><input id="lanLoginCode" type="text" inputmode="text" pattern="(?:[0-9]{5}|[0-9]{5}[A-HJ-KM-NP-Za-hj-km-np-z]{1,2})" maxlength="7" autocomplete="one-time-code" placeholder="12345 或 54145K"></label>
             <button type="button" id="lanAutoSearchButton" class="ghost-btn lan-search-button">自动搜索IP</button>
-            <label class="lan-host-field"><span>内网 IP</span><input id="lanHost" type="text" inputmode="url" autocomplete="off" placeholder="192.168.1.17"></label>
+            <label class="lan-host-field"><span>服务器地址 / IP</span><input id="lanHost" type="text" inputmode="url" autocomplete="off" placeholder="192.168.1.17 或 https://dlol.onrender.com"></label>
             <button type="button" id="lanConnectButton" class="primary-btn lan-connect-button">连接服务器</button>
           </div>
           <div class="lan-smart-row">
-            <label for="lanSmartInput"><span>智能输入</span><textarea id="lanSmartInput" rows="2" placeholder="可粘贴 8406-12345、服务器控制台或包含IP/端口/登录码的文字"></textarea></label>
+            <label for="lanSmartInput"><span>智能输入</span><textarea id="lanSmartInput" rows="2" placeholder="可粘贴邀请链接、服务器URL，或包含IP/端口/登录码的文字"></textarea></label>
             <button type="button" id="lanSmartApplyButton" class="ghost-btn">输入</button>
           </div>
           <div id="lanConnectionStatus" class="setup-summary">尚未连接。</div>
@@ -64,7 +64,7 @@
       </section>
 
       <section class="setup-section hidden" id="lanWaitingSection">
-        <div class="section-title"><span class="step-number">LAN</span><h2>等待玩家A开始</h2></div>
+        <div class="section-title"><span class="step-number">联机</span><h2>等待玩家A开始</h2></div>
         <div id="lanWaitingText" class="setup-summary">已经登录，正在等待玩家A完成开局设置。</div>
       </section>
 
@@ -172,7 +172,7 @@
       <section id="playerCards" class="player-cards"></section>
       <section id="lanChatPanel" class="lan-chat-panel" aria-labelledby="lanChatTitle">
         <header class="lan-chat-heading">
-          <h3 id="lanChatTitle">局域网聊天</h3>
+          <h3 id="lanChatTitle">联机聊天</h3>
           <span id="lanChatCount">0</span>
         </header>
         <div class="lan-chat-log-wrap"><div id="lanChatLog" class="lan-chat-log" role="log" aria-live="polite" aria-relevant="additions"></div><button type="button" id="lanChatUnread" class="lan-chat-unread hidden" aria-label="滚动到最新消息">未读 0</button></div>
@@ -267,7 +267,7 @@
     <div class="defeat-card">
       <strong id="defeatText"></strong>
       <section id="defeatLanChatPanel" class="lan-chat-panel modal-lan-chat-panel" aria-labelledby="defeatLanChatTitle">
-        <header class="lan-chat-heading"><h3 id="defeatLanChatTitle">局域网聊天</h3><span id="defeatLanChatCount">0</span></header>
+        <header class="lan-chat-heading"><h3 id="defeatLanChatTitle">联机聊天</h3><span id="defeatLanChatCount">0</span></header>
         <div class="lan-chat-log-wrap"><div id="defeatLanChatLog" class="lan-chat-log" role="log" aria-live="polite"></div><button type="button" id="defeatLanChatUnread" class="lan-chat-unread hidden">未读 0</button></div>
         <textarea id="defeatLanChatInput" class="lan-chat-input" rows="3" maxlength="2000" placeholder=""></textarea>
         <div class="lan-chat-actions"><button type="button" id="defeatLanChatHint" class="ghost-btn lan-chat-mode-button">当前：Enter发送</button><button type="button" id="defeatLanChatSend" class="primary-btn">发送</button></div>
@@ -284,7 +284,7 @@
     <div class="defeat-card communication-modal-card">
       <strong id="undoRequestText">允许对方撤销？</strong>
       <section id="undoLanChatPanel" class="lan-chat-panel modal-lan-chat-panel" aria-labelledby="undoLanChatTitle">
-        <header class="lan-chat-heading"><h3 id="undoLanChatTitle">局域网聊天</h3><span id="undoLanChatCount">0</span></header>
+        <header class="lan-chat-heading"><h3 id="undoLanChatTitle">联机聊天</h3><span id="undoLanChatCount">0</span></header>
         <div class="lan-chat-log-wrap"><div id="undoLanChatLog" class="lan-chat-log" role="log" aria-live="polite"></div><button type="button" id="undoLanChatUnread" class="lan-chat-unread hidden">未读 0</button></div>
         <textarea id="undoLanChatInput" class="lan-chat-input" rows="3" maxlength="2000" placeholder=""></textarea>
         <div class="lan-chat-actions"><button type="button" id="undoLanChatHint" class="ghost-btn lan-chat-mode-button">当前：Enter发送</button><button type="button" id="undoLanChatSend" class="primary-btn">发送</button></div>
@@ -337,6 +337,7 @@
   <script src="ai-model-normal.js"></script>
   <script src="ai-model-advanced.js"></script>
   <script src="ai-controller.js"></script>
+  <script src="request-retry.js"></script>
   <script src="network-client.js"></script>
   <script src="game.js"></script>
 </body>

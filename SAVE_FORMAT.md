@@ -8,7 +8,7 @@
 {
   "format": "double-flight-lan-save",
   "formatVersion": 4,
-  "appVersion": "0.42.1",
+  "appVersion": "0.42.2",
   "roomId": 1,
   "roomStatus": "lobby",
   "lobbyConfig": {
