@@ -197,8 +197,7 @@ class LanRoom {
   }
 
   static chatTimestamp(date = new Date()) {
-    const pad = value => String(value).padStart(2, '0');
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+    return date.toISOString();
   }
 
   ensureCodes(excludeCodes = new Set()) {

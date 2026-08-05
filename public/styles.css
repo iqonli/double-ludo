@@ -1355,121 +1355,132 @@ body.resizing-chat-panel, body.resizing-chat-panel * { cursor: ns-resize !import
 }
 
 
-/* v0.42.2 setup card: one visual shell, one scroll surface.
-   The outer card keeps the original size, radius and shadow. All setup content,
-   including the title and footer, belongs to the same native wheel/touch scroller. */
-#setupOverlay .setup-card {
-  display: grid;
-  grid-template-rows: minmax(0, 1fr);
-  overflow: hidden;
-  overscroll-behavior: contain;
+/* v0.42.2 setup composite scroller.
+   The online chat and the setup card are sibling cards inside one native
+   wheel/touch scroll surface. Their visual shells remain independent, while
+   the overlay no longer creates competing scroll containers. */
+#setupOverlay {
+  overflow: hidden !important;
+  place-items: center;
 }
-#setupOverlay .setup-scroll-surface {
+#setupOverlay .setup-composite-scroll {
+  box-sizing: border-box;
+  width: min(760px, 100%);
+  max-height: calc(100dvh - 48px);
   min-width: 0;
-  min-height: 0;
-  max-height: inherit;
   overflow-x: hidden;
   overflow-y: auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 12px;
   overscroll-behavior-y: contain;
   scrollbar-width: thin;
   scrollbar-gutter: stable;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y pinch-zoom;
 }
-#setupOverlay .setup-scroll-surface::-webkit-scrollbar { width: 10px; }
-#setupOverlay .setup-scroll-surface::-webkit-scrollbar-track { background: var(--panel-2); }
-#setupOverlay .setup-scroll-surface::-webkit-scrollbar-thumb {
+#setupOverlay .setup-composite-scroll::-webkit-scrollbar { width: 10px; }
+#setupOverlay .setup-composite-scroll::-webkit-scrollbar-track { background: transparent; }
+#setupOverlay .setup-composite-scroll::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
   border-radius: 999px;
   background: var(--border-strong);
   background-clip: padding-box;
 }
-#setupOverlay .setup-heading,
-#setupOverlay .setup-section,
-#setupOverlay .setup-footer {
+#setupOverlay .setup-card {
+  grid-area: auto;
+  width: 100%;
+  max-height: none;
+  justify-self: stretch;
+  overflow: hidden;
+  display: block;
+}
+#setupOverlay .setup-scroll-surface {
+  max-height: none;
+  overflow: visible;
+  display: block;
+  scrollbar-gutter: auto;
   touch-action: pan-y pinch-zoom;
 }
-body:not(.lan-mode) #setupOverlay:not(.hidden) {
-  overflow: hidden;
+#setupOverlay .setup-heading,
+#setupOverlay .setup-section,
+#setupOverlay .setup-footer,
+#setupOverlay .setup-lan-chat-panel {
+  touch-action: pan-y pinch-zoom;
 }
-
-
-/* v0.42.2 LAN setup scroll correction.
-   The setup chat now lives inside the same setup scroll surface. On wide
-   desktop screens it keeps the original floating-left appearance; on narrow
-   containers it becomes an in-flow sub-card so wheel, trackpad and touch
-   gestures never fall back to a second overlay scroller. */
-#setupOverlay:not(.hidden),
-body.lan-mode #setupOverlay:not(.hidden) {
+#setupOverlay .setup-heading,
+#setupOverlay .setup-footer {
+  position: relative;
+  inset: auto;
+}
+#setupOverlay .setup-lan-chat-panel {
+  display: none;
+  position: relative;
+  inset: auto;
+  transform: none;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  max-height: min(500px, calc(100dvh - 96px));
+  margin: 0;
+  align-self: stretch;
+  box-shadow: none;
+}
+body.lan-mode #setupOverlay:not(.hidden) .setup-lan-chat-panel {
   display: grid;
+}
+body.lan-mode #setupOverlay:not(.hidden) {
   grid-template-columns: minmax(0, 1fr);
-  place-items: center;
   gap: 0;
-  overflow: hidden;
 }
-#setupOverlay .setup-card {
-  grid-area: 1 / 1;
-  justify-self: center;
+body.lan-mode #setupOverlay:not(.hidden) .setup-lan-chat-panel::before {
+  box-shadow: var(--shadow);
 }
 
-@media (min-width: 1101px) and (min-height: 721px) {
-  body.lan-mode #setupOverlay:not(.hidden) .setup-lan-chat-panel {
-    display: grid;
-    position: fixed;
-    left: 18px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: min(320px, calc(100vw - 36px));
-    height: var(--setup-chat-height, auto);
-    max-height: calc(100dvh - 48px);
-    margin: 0;
+@media (max-width: 620px), (max-height: 720px) {
+  #setupOverlay { padding: 8px; }
+  #setupOverlay .setup-composite-scroll {
+    width: 100%;
+    max-height: calc(100dvh - 16px);
+    gap: 8px;
   }
-}
-
-@media (max-width: 1100px), (max-height: 720px) {
-  body.lan-mode #setupOverlay:not(.hidden) .setup-lan-chat-panel {
-    display: grid;
-    position: relative;
-    inset: auto;
-    transform: none;
-    width: auto;
-    min-width: 0;
-    height: auto !important;
-    min-height: 0;
-    max-height: none;
-    margin: 16px 26px;
-    align-self: stretch;
-    box-shadow: none;
-    grid-template-rows: auto minmax(150px, min(32dvh, 260px)) auto auto auto;
-    touch-action: pan-y pinch-zoom;
-  }
-  body.lan-mode #setupOverlay:not(.hidden) .setup-lan-chat-panel::before {
-    box-shadow: none;
-  }
-  body.lan-mode #setupOverlay:not(.hidden) .setup-lan-chat-panel .lan-chat-log-wrap,
-  body.lan-mode #setupOverlay:not(.hidden) .setup-lan-chat-panel .lan-chat-log {
-    min-height: 0;
-    height: 100%;
-  }
-  body.lan-mode #setupOverlay:not(.hidden) .setup-lan-chat-panel .lan-chat-resize-handle {
-    display: none;
-  }
-  body.lan-mode #setupOverlay:not(.hidden) .setup-scroll-surface,
-  body.lan-mode #setupOverlay:not(.hidden) .setup-scroll-surface > * {
-    touch-action: pan-y pinch-zoom;
-  }
-}
-
-@media (max-width: 620px) {
-  body.lan-mode #setupOverlay:not(.hidden) .setup-lan-chat-panel {
-    margin: 12px;
-    grid-template-rows: auto minmax(132px, min(30dvh, 220px)) auto auto auto;
+  #setupOverlay .setup-card { border-radius: 13px; }
+  #setupOverlay .setup-lan-chat-panel {
+    max-height: min(440px, calc(100dvh - 56px));
   }
 }
 
 @media (max-width: 380px), (max-height: 560px) {
-  body.lan-mode #setupOverlay:not(.hidden) .setup-lan-chat-panel {
-    margin: 10px;
-    grid-template-rows: auto minmax(112px, min(27dvh, 180px)) auto auto auto;
+  #setupOverlay { padding: 6px; }
+  #setupOverlay .setup-composite-scroll {
+    max-height: calc(100dvh - 12px);
+    gap: 6px;
+  }
+  #setupOverlay .setup-lan-chat-panel {
+    min-height: 220px;
+    max-height: min(390px, calc(100dvh - 40px));
+  }
+}
+body.lan-mode #setupOverlay:not(.hidden) .setup-composite-scroll > .setup-lan-chat-panel {
+  display: grid;
+  position: relative;
+  left: auto;
+  right: auto;
+  top: auto;
+  bottom: auto;
+  inset: auto;
+  transform: none;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  max-height: min(500px, calc(100dvh - 96px));
+  margin: 0;
+  align-self: stretch;
+}
+@media (max-width: 620px), (max-height: 720px) {
+  body.lan-mode #setupOverlay:not(.hidden) .setup-composite-scroll > .setup-lan-chat-panel {
+    margin: 0;
+    max-height: min(440px, calc(100dvh - 56px));
   }
 }

@@ -118,10 +118,12 @@ assert(game.includes('function renderConfirmationArrows()') && game.includes('fu
 assert(css.includes('.confirmation-direction-arrow') && css.includes('.board-direction-arrow') && css.includes('stroke: rgb(70, 73, 79)') && css.includes('stroke-width: 2.4'), '两类箭头应使用相同中性深色和线宽');
 assert(html.indexOf('class="color-test-panel"') < html.indexOf('</main>'), '调色测试应与其他主要区域处于同一主工作区层级');
 assert(css.includes('.left-panel { grid-column: 1; grid-row: 1;') && css.includes('.board-panel { grid-column: 1; grid-row: 2;') && css.includes('.right-panel { grid-column: 1; grid-row: 3;') && css.includes('.log-panel { grid-column: 1; grid-row: 4;') && css.includes('.color-test-panel { grid-column: 1; grid-row: 5;'), '窄屏应按玩家信息、棋盘、回合交互、对局记录、调色测试顺序排列');
-assert(html.includes('class="setup-scroll-surface"'), '开始页应使用独立的单一滚动容器');
-assert(css.includes('#setupOverlay .setup-scroll-surface') && css.includes('touch-action: pan-y pinch-zoom') && css.includes('overflow-y: auto'), '开始页标题、正文和页脚应共享鼠标与触控滚动面');
-assert(html.indexOf('id="setupLanChatPanel"') > html.indexOf('class="setup-scroll-surface"'), '联机准备聊天应位于开始卡片的统一滚动面内');
-assert(css.includes('LAN setup scroll correction') && css.includes('height: auto !important') && css.includes('.setup-lan-chat-panel .lan-chat-resize-handle'), '窄屏联机准备页应合并聊天卡并取消第二滚动面');
+assert(html.includes('class="setup-composite-scroll"'), '开始页应使用包含聊天卡和设置卡的统一外层滚动容器');
+assert(css.includes('#setupOverlay .setup-composite-scroll') && css.includes('overflow-y: auto') && css.includes('touch-action: pan-y pinch-zoom'), '开始页聊天卡和设置卡应共享鼠标与触控滚动面');
+assert(html.indexOf('id="setupLanChatPanel"') > html.indexOf('class="setup-composite-scroll"') && html.indexOf('id="setupLanChatPanel"') < html.indexOf('class="setup-card"'), '联机聊天和开始卡片应为同级卡片，聊天直接位于标题卡上方');
+assert(css.includes('setup composite scroller') && css.includes('#setupOverlay .setup-scroll-surface') && css.includes('max-height: none;') && css.includes('overflow: visible;'), '开始卡内部不应再形成第二滚动面');
+assert(!html.includes('<span class="step-number">00</span>') && !html.includes('<span class="step-number">AI</span>') && !html.includes('<span class="step-number">联机</span>'), '开始页面编号应从01开始且不能包含文字');
+for (const marker of ['01','02','03','04','05','06']) assert(html.includes(`<span class="step-number">${marker}</span>`), `开始页面应包含纯数字步骤${marker}`);
 
 console.log('ui static tests passed');
 
@@ -195,6 +197,8 @@ assert(html.includes('data-runtime-mode="lan">联机对战') && !html.includes('
 assert(html.includes('12345 或 12345A') && html.includes('maxlength="7"'), '登录码输入应兼容本地五位数字和在线数字加字母');
 assert(game.includes('function applyInviteFromPageUrl()') && game.includes("params.get('port')") && game.includes("params.get('URL')") && game.includes('window.setTimeout(() => connectLan(), 0)'), '邀请URL应自动切换到联机并尝试连接');
 assert(game.includes('function parseInviteDetails') && game.includes('onrender\\.com'), '智能输入应识别Render域名和邀请链接');
+assert(game.includes('function formatServerTimeLocal(value)') && game.includes('localDateTimeFormatter.format(date)'), '游戏端应将服务端UTC时间转换为浏览器本地时区');
+assert(hostJs.includes('function formatServerTimeLocal(value)') && hostJs.includes('最近玩家活动（本地时间）'), '联机开房页应以浏览器本地时区显示服务端时间');
 assert(game.includes('intervalMs: 1000') && network.includes('intervalMs = options.intervalMs || 1000') && network.includes('pollTimeoutMs = options.pollTimeoutMs || 35_000') && network.includes("code === 'POLL_ABORTED'") && network.includes('schedule = [1000, 2000, 4000, 8000, 15000, 30000]'), '网络客户端应使用1000ms兼容间隔、长轮询、正常取消和指数退避');
 assert(html.includes('<script src="request-retry.js"></script>') && hostHtml.includes('<script src="request-retry.js"></script>'), '游戏页和开房页应加载统一404重试模块');
 assert(network.includes('DoubleLudoRequestRetry') && hostJs.includes('DoubleLudoRequestRetry'), '游戏API和开房API应使用统一404重试模块');

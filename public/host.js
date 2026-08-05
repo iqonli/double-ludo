@@ -3,6 +3,10 @@
   const $=id=>document.getElementById(id);
   const state={token:sessionStorage.getItem('doubleLudoAccountSession')||'',timer:null,statsTimer:null,pendingImportRoomId:null,copyTimer:null,confirmResolve:null,confirmReturnFocus:null};
 
+  const localDateTimeFormatter=new Intl.DateTimeFormat(undefined,{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+  function parseServerDate(value){const raw=String(value||'').trim();const normalized=/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(raw)?raw.replace(' ','T')+'Z':raw;const date=new Date(normalized);return Number.isFinite(date.getTime())?date:null}
+  function formatServerTimeLocal(value){const date=parseServerDate(value);return date?localDateTimeFormatter.format(date):String(value||'未知')}
+
   function notice(text,error=false){
     $('notice').textContent=String(text||'');
     $('notice').classList.toggle('error',Boolean(error));
@@ -111,10 +115,10 @@
     card.className='card room-card';
     const roomId=Number(room.roomId);
     const status=room.roomStatus==='playing'?'游戏中':'等待开局';
-    const lastActivity=new Date(room.lastPlayerActivityAt).toLocaleString();
+    const lastActivity=formatServerTimeLocal(room.lastPlayerActivityAt);
     card.innerHTML=`
       <div class="room-head">
-        <div><h2>房间 ${Number.isInteger(roomId)?roomId:'—'}</h2><div class="room-meta">状态：${status}<br>最近玩家活动：${escapeHtml(lastActivity)}<br>归属IP：${escapeHtml(room.ownerIpAddress||'未知')}</div></div>
+        <div><h2>房间 ${Number.isInteger(roomId)?roomId:'—'}</h2><div class="room-meta">状态：${status}<br>最近玩家活动（本地时间）：${escapeHtml(lastActivity)}<br>归属IP：${escapeHtml(room.ownerIpAddress||'未知')}</div></div>
         <button class="danger" data-delete-room="${Number.isInteger(roomId)?roomId:''}">删除房间</button>
       </div>
       <div class="codes">

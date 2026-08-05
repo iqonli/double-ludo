@@ -10,6 +10,20 @@
 </head>
 <body>
   <div id="setupOverlay" class="overlay">
+    <div class="setup-composite-scroll">
+      <section id="setupLanChatPanel" class="lan-chat-panel setup-lan-chat-panel" aria-labelledby="setupLanChatTitle">
+        <header class="lan-chat-heading">
+          <h3 id="setupLanChatTitle">联机聊天</h3>
+          <span id="setupLanChatCount">0</span>
+        </header>
+        <div class="lan-chat-log-wrap"><div id="setupLanChatLog" class="lan-chat-log" role="log" aria-live="polite" aria-relevant="additions"></div><button type="button" id="setupLanChatUnread" class="lan-chat-unread hidden" aria-label="滚动到最新消息">未读 0</button></div>
+        <label class="lan-chat-input-label" for="setupLanChatInput">消息</label>
+        <textarea id="setupLanChatInput" class="lan-chat-input" rows="3" maxlength="2000" placeholder=""></textarea>
+        <div class="lan-chat-actions">
+          <button type="button" id="setupLanChatHint" class="ghost-btn lan-chat-mode-button">当前：Enter发送</button>
+          <button type="button" id="setupLanChatSend" class="primary-btn">发送</button>
+        </div>
+      </section>
     <section class="setup-card" aria-labelledby="setupTitle">
       <div class="setup-scroll-surface">
       <header class="setup-heading">
@@ -30,7 +44,7 @@
 
 
       <section class="setup-section" id="runtimeSection">
-        <div class="section-title"><span class="step-number">00</span><h2>选择游戏方式</h2></div>
+        <div class="section-title"><span class="step-number">01</span><h2>选择游戏方式</h2></div>
         <div class="segmented" id="runtimeButtons">
           <button type="button" data-runtime-mode="local" class="active">本地对战</button>
           <button type="button" data-runtime-mode="lan">联机对战</button>
@@ -51,27 +65,14 @@
         </div>
       </section>
 
-      <section id="setupLanChatPanel" class="lan-chat-panel setup-lan-chat-panel" aria-labelledby="setupLanChatTitle">
-        <header class="lan-chat-heading">
-          <h3 id="setupLanChatTitle">联机聊天</h3>
-          <span id="setupLanChatCount">0</span>
-        </header>
-        <div class="lan-chat-log-wrap"><div id="setupLanChatLog" class="lan-chat-log" role="log" aria-live="polite" aria-relevant="additions"></div><button type="button" id="setupLanChatUnread" class="lan-chat-unread hidden" aria-label="滚动到最新消息">未读 0</button></div>
-        <label class="lan-chat-input-label" for="setupLanChatInput">消息</label>
-        <textarea id="setupLanChatInput" class="lan-chat-input" rows="3" maxlength="2000" placeholder=""></textarea>
-        <div class="lan-chat-actions">
-          <button type="button" id="setupLanChatHint" class="ghost-btn lan-chat-mode-button">当前：Enter发送</button>
-          <button type="button" id="setupLanChatSend" class="primary-btn">发送</button>
-        </div>
-      </section>
 
       <section class="setup-section hidden" id="lanWaitingSection">
-        <div class="section-title"><span class="step-number">联机</span><h2>等待玩家A开始</h2></div>
+        <div class="section-title"><span class="step-number">02</span><h2>等待玩家A开始</h2></div>
         <div id="lanWaitingText" class="setup-summary">已经登录，正在等待玩家A完成开局设置。</div>
       </section>
 
       <section class="setup-section" id="modeSection">
-        <div class="section-title"><span class="step-number">01</span><h2>选择模式</h2></div>
+        <div class="section-title"><span class="step-number">02</span><h2>选择模式</h2></div>
         <div class="segmented" id="modeButtons">
           <button type="button" data-mode="classic" class="active">双飞</button>
           <button type="button" data-mode="speed">极速双飞</button>
@@ -80,7 +81,7 @@
 
 
       <section class="setup-section" id="aiSetupSection">
-        <div class="section-title"><span class="step-number">AI</span><h2>设置人机</h2></div>
+        <div class="section-title"><span class="step-number">03</span><h2>设置人机</h2></div>
         <p class="muted">可让任一玩家在开局时由人机控制。极速双飞不提供人机。</p>
         <div class="setup-ai-grid">
           <article class="setup-ai-card" data-ai-player="A">
@@ -97,7 +98,7 @@
       </section>
 
       <section class="setup-section" id="colorSection">
-        <div class="section-title"><span class="step-number">02</span><h2>玩家A依次选择两个颜色</h2></div>
+        <div class="section-title"><span class="step-number">04</span><h2>玩家A依次选择两个颜色</h2></div>
         <div class="color-picker" id="colorPicker">
           <button type="button" data-color="red" class="color-choice color-red"><i></i>红色</button>
           <button type="button" data-color="yellow" class="color-choice color-yellow"><i></i>黄色</button>
@@ -108,13 +109,13 @@
       </section>
 
       <section class="setup-section" id="protectionSection">
-        <div class="section-title"><span class="step-number">03</span><h2>永久保护</h2></div>
+        <div class="section-title"><span class="step-number">05</span><h2>永久保护</h2></div>
         <p class="muted">保护颜色不能吃子，也不能被吃。开局后不可修改。</p>
         <div id="protectionChoices" class="protection-grid"></div>
       </section>
 
       <section class="setup-section hidden" id="speedOrderSection">
-        <div class="section-title"><span class="step-number">03</span><h2>比较点数和决定先手</h2></div>
+        <div class="section-title"><span class="step-number">05</span><h2>比较点数和决定先手</h2></div>
         <div class="order-grid">
           <button type="button" id="rollOrderA" class="ghost-btn order-roll-button">玩家A投掷</button>
           <output id="orderResultA">未投</output>
@@ -125,7 +126,7 @@
       </section>
 
       <section class="setup-section" id="ruleSettingsSection">
-        <div class="section-title"><span class="step-number">04</span><h2>规则设置</h2></div>
+        <div class="section-title"><span class="step-number">06</span><h2>规则设置</h2></div>
         <div class="launch-settings">
           <div>
             <strong>起飞点数</strong>
@@ -151,6 +152,7 @@
       </footer>
       </div>
     </section>
+    </div>
   </div>
 
   <header class="app-header">

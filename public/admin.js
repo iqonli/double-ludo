@@ -5,6 +5,10 @@
   const lastChatByRoom=new Map(),unreadByRoom=new Map(),followByRoom=new Map();
   const requestFetch=window.DoubleLudoRequestRetry&&window.DoubleLudoRequestRetry.fetch?window.DoubleLudoRequestRetry.fetch:window.fetch.bind(window);
 
+  const utcDateTimeFormatter=new Intl.DateTimeFormat('zh-CN',{timeZone:'UTC',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+  function parseServerDate(value){const raw=String(value||'').trim();const normalized=/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(raw)?raw.replace(' ','T')+'Z':raw;const date=new Date(normalized);return Number.isFinite(date.getTime())?date:null}
+  function formatServerTimeUtc(value){const date=parseServerDate(value);return date?`${utcDateTimeFormatter.format(date)} UTC0`:String(value||'未知')}
+
   function notice(text){$('notice').textContent=String(text||'')}
   function escapeText(value){return String(value??'')}
   async function api(path,body){
@@ -39,14 +43,14 @@
       card.appendChild(codes);
       const actions=document.createElement('div');actions.className='room-actions';const defs=room.roomStatus==='closed'?[['开房','open','primary']]:[['重新开局','restart',''],['刷新登录码','refresh',''],['导出对局','export',''],['恢复对局','import',''],['关闭房间','close','danger']];
       for(const [label,action,klass] of defs){const button=document.createElement('button');button.textContent=label;if(klass)button.className=klass;button.onclick=()=>roomAction(room.roomId,action);actions.appendChild(button)}card.appendChild(actions);
-      const logTitle=document.createElement('div');logTitle.className='muted';logTitle.textContent='日志';const log=document.createElement('pre');log.className='room-log';log.textContent=Array.isArray(room.roomLog)&&room.roomLog.length?room.roomLog.join('\n'):'暂无日志';card.append(logTitle,log);grid.appendChild(card)
+      const logTitle=document.createElement('div');logTitle.className='muted';logTitle.textContent='日志（UTC0）';const log=document.createElement('pre');log.className='room-log';log.textContent=Array.isArray(room.roomLog)&&room.roomLog.length?room.roomLog.join('\n'):'暂无日志';card.append(logTitle,log);grid.appendChild(card)
     }
   }
 
   function renderAccounts(){
     const card=$('accountsCard');if(!latest||!latest.onlineMode){card.classList.add('hidden');return}card.classList.remove('hidden');const accounts=Array.isArray(latest.accounts)?latest.accounts:[];$('accountCount').textContent=String(accounts.length);const list=$('accounts');list.replaceChildren();
     if(!accounts.length){const empty=document.createElement('div');empty.className='muted';empty.textContent='当前没有账号。';list.appendChild(empty);return}
-    for(const account of accounts){const item=document.createElement('article');item.className='account-item';const title=document.createElement('strong');title.textContent=account.accountId;const meta=document.createElement('div');meta.className='account-meta';meta.textContent=`IP：${account.ownerIpAddress||'未知'}\n状态：${account.active?'管理页在线':'未登录'}\n房间：${account.roomIds&&account.roomIds.length?account.roomIds.join('、'):'无'}\n创建：${new Date(account.createdAt).toLocaleString()}\n最近访问：${new Date(account.lastAccessAt).toLocaleString()}`;meta.style.whiteSpace='pre-line';const del=document.createElement('button');del.className='danger';del.textContent='删除账号及房间';del.onclick=async()=>{if(!(await askConfirm(`确定删除账号 ${account.accountId} 及其全部房间？对局玩家会立即退出。`,'删除账号')))return;try{paint(await api('/api/admin/account/delete',{accountId:account.accountId}));notice('账号已删除')}catch(error){notice('删除失败：'+error.message)}};item.append(title,meta,del);list.appendChild(item)}
+    for(const account of accounts){const item=document.createElement('article');item.className='account-item';const title=document.createElement('strong');title.textContent=account.accountId;const meta=document.createElement('div');meta.className='account-meta';meta.textContent=`IP：${account.ownerIpAddress||'未知'}\n状态：${account.active?'管理页在线':'未登录'}\n房间：${account.roomIds&&account.roomIds.length?account.roomIds.join('、'):'无'}\n创建：${formatServerTimeUtc(account.createdAt)}\n最近访问：${formatServerTimeUtc(account.lastAccessAt)}`;meta.style.whiteSpace='pre-line';const del=document.createElement('button');del.className='danger';del.textContent='删除账号及房间';del.onclick=async()=>{if(!(await askConfirm(`确定删除账号 ${account.accountId} 及其全部房间？对局玩家会立即退出。`,'删除账号')))return;try{paint(await api('/api/admin/account/delete',{accountId:account.accountId}));notice('账号已删除')}catch(error){notice('删除失败：'+error.message)}};item.append(title,meta,del);list.appendChild(item)}
   }
 
   function renderOnlinePlayers(){
@@ -61,7 +65,7 @@
       const item=document.createElement('article');item.className='online-player-item';
       const title=document.createElement('strong');title.textContent=`房间 ${player.roomId} · 玩家${player.role}`;
       const meta=document.createElement('div');meta.className='online-player-meta';
-      meta.textContent=`IP：${player.ipAddress||'未知'}\n账号：${player.accountId||'管理员房间'}\n最后活动：${player.lastSeenAt?new Date(player.lastSeenAt).toLocaleString():'未知'}`;
+      meta.textContent=`IP：${player.ipAddress||'未知'}\n账号：${player.accountId||'管理员房间'}\n最后活动：${player.lastSeenAt?formatServerTimeUtc(player.lastSeenAt):'未知'}`;
       item.append(title,meta);list.appendChild(item);
     }
   }
@@ -69,7 +73,7 @@
   function renderChat(){
     const rooms=latest&&Array.isArray(latest.rooms)?latest.rooms:[],select=$('chatRoomSelect');select.replaceChildren();for(const room of rooms){const option=document.createElement('option');option.value=String(room.roomId);option.textContent=`房间 ${room.roomId} · ${statusLabel(room.roomStatus)}`;select.appendChild(option)}
     if(!rooms.length)selectedRoomId=null;else if(!roomById(selectedRoomId))selectedRoomId=rooms[0].roomId;select.value=selectedRoomId==null?'':String(selectedRoomId);const room=roomById(selectedRoomId),roomId=Number(selectedRoomId),log=$('chatLog'),near=followByRoom.get(roomId)!==false,previousTop=log.scrollTop,messages=room&&Array.isArray(room.chatMessages)?room.chatMessages:[],newVersion=room?Number(room.chatVersion):-1,oldVersion=lastChatByRoom.get(roomId);const incoming=oldVersion!==undefined&&newVersion>oldVersion&&messages.length&&messages.at(-1).player!=='SERVER';let unread=Number(unreadByRoom.get(roomId)||0);if(incoming){$('chatCard').classList.remove('chat-bg-shake');void $('chatCard').offsetWidth;$('chatCard').classList.add('chat-bg-shake');unread=near?0:unread+Math.max(1,newVersion-oldVersion)}log.replaceChildren();$('chatCount').textContent=String(messages.length);
-    if(!messages.length){const empty=document.createElement('div');empty.className='chat-empty';empty.textContent=room&&room.roomStatus!=='closed'?'暂无消息。':'请选择已开启的房间。';log.appendChild(empty)}else for(const msg of messages){const item=document.createElement('article');item.className='chat-message'+(msg.player==='SERVER'?' server':'');const meta=document.createElement('div');meta.className='chat-meta';meta.textContent=`${escapeText(msg.time)} ${escapeText(msg.name)}:`;const content=document.createElement('div');content.className='chat-content';content.textContent=escapeText(msg.content);item.append(meta,content);log.appendChild(item)}
+    if(!messages.length){const empty=document.createElement('div');empty.className='chat-empty';empty.textContent=room&&room.roomStatus!=='closed'?'暂无消息。':'请选择已开启的房间。';log.appendChild(empty)}else for(const msg of messages){const item=document.createElement('article');item.className='chat-message'+(msg.player==='SERVER'?' server':'');const meta=document.createElement('div');meta.className='chat-meta';meta.textContent=`${escapeText(formatServerTimeUtc(msg.time))} ${escapeText(msg.name)}:`;const content=document.createElement('div');content.className='chat-content';content.textContent=escapeText(msg.content);item.append(meta,content);log.appendChild(item)}
     requestAnimationFrame(()=>{log.scrollTop=near?log.scrollHeight:previousTop});unreadByRoom.set(roomId,unread);$('chatUnread').textContent='未读 '+unread;$('chatUnread').classList.toggle('hidden',unread<=0);const enabled=Boolean(room&&room.roomStatus!=='closed');$('chatInput').disabled=!enabled;$('chatHint').disabled=!enabled;$('sendChat').disabled=!enabled||!$('chatInput').value.trim();$('chatHint').textContent=enabled?`当前：${chatSendKeyMode==='enter'?'Enter':'Shift+Enter'}发送`:'请选择已开启房间';if(room)lastChatByRoom.set(roomId,newVersion)
   }
 

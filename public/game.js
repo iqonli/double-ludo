@@ -171,6 +171,26 @@
 
   const el = {};
   const byId = id => document.getElementById(id);
+
+  const localDateTimeFormatter = new Intl.DateTimeFormat(undefined, {
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+  });
+
+  function parseServerDate(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return null;
+    const normalized = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(raw)
+      ? `${raw.replace(' ', 'T')}Z`
+      : raw;
+    const date = new Date(normalized);
+    return Number.isFinite(date.getTime()) ? date : null;
+  }
+
+  function formatServerTimeLocal(value) {
+    const date = parseServerDate(value);
+    return date ? localDateTimeFormatter.format(date) : String(value || '');
+  }
   const delay = ms => new Promise(resolve => window.setTimeout(resolve, ms));
   const cloneData = value => JSON.parse(JSON.stringify(value));
 
@@ -936,7 +956,7 @@
           article.className = `lan-chat-message${messageClass}`;
           const meta = document.createElement('div');
           meta.className = 'lan-chat-meta';
-          meta.textContent = `${message.time} ${message.name || `玩家${message.player}`}:`;
+          meta.textContent = `${formatServerTimeLocal(message.time)} ${message.name || `玩家${message.player}`}:`;
           const content = document.createElement('div');
           content.className = 'lan-chat-content';
           content.textContent = String(message.content || '');

@@ -10,6 +10,7 @@ const serverSource = fs.readFileSync(path.join(root, 'server.js'), 'utf8');
 const adminHtml = fs.readFileSync(path.join(root, 'public', 'admin.html'), 'utf8');
 const adminJs = fs.readFileSync(path.join(root, 'public', 'admin.js'), 'utf8');
 const adminCss = fs.readFileSync(path.join(root, 'public', 'admin.css'), 'utf8');
+const roomSource = fs.readFileSync(path.join(root, 'server', 'room.js'), 'utf8');
 
 test('服务端管理页、多房间、随机端口、聊天与自动存档接口完整', () => {
   assert(adminHtml.includes('id="createRoom"'));
@@ -125,4 +126,12 @@ test('管理页使用响应式自定义确认弹窗且不会在窄屏铺满', ()
   assert(adminCss.includes('Responsive modal hardening'));
   assert(adminCss.includes('max-height:calc(100dvh - 28px)'));
   assert(adminCss.includes('env(safe-area-inset-left)'));
+});
+
+
+test('服务器时间统一为UTC0，管理页明确按UTC0显示', () => {
+  assert(roomSource.includes('return date.toISOString()'));
+  assert(adminJs.includes("timeZone:'UTC'"));
+  assert(adminJs.includes('formatServerTimeUtc'));
+  assert(adminJs.includes('日志（UTC0）'));
 });

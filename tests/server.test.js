@@ -91,7 +91,7 @@ test('局域网聊天支持多行内容并独立于棋局版本', () => {
   assert(sent.chatVersion > chatBefore);
   assert.equal(sent.chatMessages.at(-1).name, '玩家A');
   assert.equal(sent.chatMessages.at(-1).content, '快点准备！！\n第二行');
-  assert.match(sent.chatMessages.at(-1).time, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+  assert.match(sent.chatMessages.at(-1).time, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
   const polled = room.poll(b.sessionToken, gameVersion, chatBefore);
   assert.equal(polled.chatMessages.at(-1).content, '快点准备！！\n第二行');
   assert.equal(room.poll(b.sessionToken, gameVersion, polled.chatVersion), null);
