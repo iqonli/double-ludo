@@ -1,7 +1,7 @@
 (function(){
   'use strict';
   const $=id=>document.getElementById(id);
-  const state={token:sessionStorage.getItem('doubleLudoAccountSession')||'',timer:null,statsTimer:null,pendingImportRoomId:null,copyTimer:null};
+  const state={token:sessionStorage.getItem('doubleLudoAccountSession')||'',timer:null,statsTimer:null,pendingImportRoomId:null,copyTimer:null,confirmResolve:null,confirmReturnFocus:null};
 
   function notice(text,error=false){
     $('notice').textContent=String(text||'');
@@ -73,6 +73,26 @@
     showCopyPop(button);
   }
 
+  function settleConfirm(accepted){
+    const resolve=state.confirmResolve;
+    state.confirmResolve=null;
+    $('hostConfirmModal').classList.add('hidden');
+    if(resolve)resolve(Boolean(accepted));
+    const target=state.confirmReturnFocus;
+    state.confirmReturnFocus=null;
+    if(target&&typeof target.focus==='function')requestAnimationFrame(()=>target.focus());
+  }
+
+  function askConfirm(message,acceptLabel='确认'){
+    if(state.confirmResolve)settleConfirm(false);
+    state.confirmReturnFocus=document.activeElement;
+    $('hostConfirmMessage').textContent=String(message||'');
+    $('hostConfirmAccept').textContent=String(acceptLabel||'确认');
+    $('hostConfirmModal').classList.remove('hidden');
+    requestAnimationFrame(()=>$('hostConfirmCancel').focus());
+    return new Promise(resolve=>{state.confirmResolve=resolve});
+  }
+
   function downloadJson(filename,value){
     const blob=new Blob([JSON.stringify(value,null,2)],{type:'application/json'});
     const url=URL.createObjectURL(blob);
@@ -106,7 +126,7 @@
     card.querySelector('[data-export-room]').onclick=async()=>{try{await exportRoom(roomId)}catch(error){handleError(error)}};
     card.querySelector('[data-import-room]').onclick=()=>{state.pendingImportRoomId=roomId;$('importFile').value='';$('importFile').click()};
     card.querySelector('[data-delete-room]').onclick=async()=>{
-      if(!confirm(`确定删除房间${room.roomId}？正在游戏的玩家会立即失去连接。`))return;
+      if(!(await askConfirm(`确定删除房间${room.roomId}？正在游戏的玩家会立即失去连接。`,'删除房间')))return;
       try{render(await api('/api/account/room/delete',{sessionToken:state.token,roomId:room.roomId}));notice(`已删除房间${room.roomId}`)}catch(error){handleError(error)}
     };
     return card;
@@ -160,7 +180,11 @@
   $('accountPassword').addEventListener('keydown',event=>{if(event.key==='Enter')$('loginButton').click()});
   $('createRoomButton').onclick=async()=>{try{$('createRoomButton').disabled=true;const data=await api('/api/account/room/create',{sessionToken:state.token});render(data);notice(`已创建房间${data.createdRoom.roomId}`)}catch(error){handleError(error)}finally{await refresh()}};
   $('logoutButton').onclick=async()=>{try{await api('/api/account/logout',{sessionToken:state.token})}catch(_){}showLogin('已退出账号。')};
-  $('deleteAccountButton').onclick=async()=>{if(!confirm('确定删除账号及其全部房间？正在对局的玩家会立即退出，此操作不能撤销。'))return;try{await api('/api/account/delete',{sessionToken:state.token});showLogin('账号及其房间已删除。')}catch(error){handleError(error)}};
+  $('deleteAccountButton').onclick=async()=>{if(!(await askConfirm('确定删除账号及其全部房间？正在对局的玩家会立即退出，此操作不能撤销。','删除账号')))return;try{await api('/api/account/delete',{sessionToken:state.token});showLogin('账号及其房间已删除。')}catch(error){handleError(error)}};
+  $('hostConfirmCancel').onclick=()=>settleConfirm(false);
+  $('hostConfirmAccept').onclick=()=>settleConfirm(true);
+  $('hostConfirmModal').onclick=event=>{if(event.target===$('hostConfirmModal'))settleConfirm(false)};
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!$('hostConfirmModal').classList.contains('hidden')){event.preventDefault();settleConfirm(false)}});
   $('importFile').onchange=async()=>{
     const file=$('importFile').files&&$('importFile').files[0];
     const roomId=state.pendingImportRoomId;

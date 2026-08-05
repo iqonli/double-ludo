@@ -187,7 +187,7 @@ assert(css.includes('.setup-game-icon { width: 64px; height: 64px; flex: 0 0 64p
 assert(html.indexOf('id="backToGame"') < html.indexOf('id="setupAboutButton"'), '返回原局应位于关于左侧');
 assert(html.includes('rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,'), '游戏页应内嵌标签页图标');
 assert(html.includes('data-runtime-mode="lan">联机对战') && !html.includes('局域网对战'), '游戏方式应统一显示为联机对战');
-assert(html.includes('12345 或 54145K') && html.includes('maxlength="7"'), '登录码输入应兼容本地五位数字和在线数字加字母');
+assert(html.includes('12345 或 12345A') && html.includes('maxlength="7"'), '登录码输入应兼容本地五位数字和在线数字加字母');
 assert(game.includes('function applyInviteFromPageUrl()') && game.includes("params.get('port')") && game.includes("params.get('URL')") && game.includes('window.setTimeout(() => connectLan(), 0)'), '邀请URL应自动切换到联机并尝试连接');
 assert(game.includes('function parseInviteDetails') && game.includes('onrender\\.com'), '智能输入应识别Render域名和邀请链接');
 assert(game.includes('intervalMs: 1000') && network.includes('intervalMs = options.intervalMs || 1000') && network.includes('pollTimeoutMs = options.pollTimeoutMs || 35_000') && network.includes("code === 'POLL_ABORTED'") && network.includes('schedule = [1000, 2000, 4000, 8000, 15000, 30000]'), '网络客户端应使用1000ms兼容间隔、长轮询、正常取消和指数退避');
@@ -217,3 +217,10 @@ assert(hostJs.includes("$('activeRoomCount')") && hostJs.includes("$('onlinePlay
 const hostCss = fs.readFileSync(publicFile('host.css'), 'utf8');
 assert(hostCss.includes('.eyebrow{font-size:12px;letter-spacing:.14em;color:var(--text)}'), 'DOUBLE LUDO ONLINE应使用普通文字颜色');
 assert(hostCss.includes('@media(max-width:560px)') && hostCss.includes('.server-stats'), '联机开房页应适配手机和窄容器');
+
+assert(html.includes('12345 或 12345A') && !html.includes('54145K'), '所有可见在线登录码示例应统一为12345A');
+assert(css.includes('responsive floating-dialog hardening') && css.includes('max-height: calc(100dvh - 28px)') && css.includes('env(safe-area-inset-left)'), '游戏弹窗应保留安全边距并适配刘海屏与窄容器');
+assert(css.includes('.defeat-actions {\n    display: grid;\n    grid-template-columns: 1fr;'), '窄屏游戏弹窗按钮应纵向排列，避免挤出容器');
+assert(hostHtml.includes('id="hostConfirmModal"') && hostHtml.includes('id="hostConfirmMessage"'), '联机开房页应使用自定义响应式确认弹窗');
+assert(hostJs.includes('function askConfirm(') && !hostJs.includes('confirm('), '联机开房页不应使用可能在手机上全屏化的原生confirm');
+assert(hostCss.includes('.host-modal-card') && hostCss.includes('calc(100dvh - 28px)'), '联机开房页确认弹窗应保持浮层安全边距');

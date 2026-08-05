@@ -85,6 +85,18 @@
     <div id="notice" class="notice" role="status" aria-live="polite"></div>
     <div id="copyPop" class="copy-pop hidden" role="status">复制成功</div>
   </main>
+
+  <div id="hostConfirmModal" class="host-modal hidden" role="dialog" aria-modal="true" aria-labelledby="hostConfirmTitle" aria-describedby="hostConfirmMessage">
+    <section class="host-modal-card" tabindex="-1">
+      <h2 id="hostConfirmTitle">确认操作</h2>
+      <p id="hostConfirmMessage"></p>
+      <div class="host-modal-actions">
+        <button type="button" id="hostConfirmCancel">取消</button>
+        <button type="button" id="hostConfirmAccept" class="danger">确认</button>
+      </div>
+    </section>
+  </div>
+
   <script src="request-retry.js"></script>
   <script src="host.js"></script>
 </body>

@@ -1,7 +1,5 @@
 # Double Ludo 部署到 Render
 
-> 由ChatGPT 5.6 Sol High撰写
-
 本项目的同一份`public/game.html`可以连接本地局域网服务器、Render云端服务器或其他兼容服务器。Render模式提供公开账号开房页、在线登录码、内存房间、长轮询和管理员认证。
 
 ## 一、部署前准备
@@ -125,7 +123,7 @@ ALLOW_FILE_ORIGIN=true
 5. 邀请链接格式类似：
 
 ```text
-https://dlol.onrender.com/game.html?port=54321U&URL=https%3A%2F%2Fdlol.onrender.com
+https://dlol.onrender.com/game.html?port=12345A&URL=https%3A%2F%2Fdlol.onrender.com
 ```
 
 打开邀请链接后，`game.html`会自动切换到联机页面、填写服务器地址和登录码，并尝试连接。
@@ -134,7 +132,7 @@ https://dlol.onrender.com/game.html?port=54321U&URL=https%3A%2F%2Fdlol.onrender.
 
 ```text
 5位数字 + 1位大写字母
-例如：54145K
+例如：12345A
 ```
 
 字母不使用`I`、`L`、`O`，输入小写字母也能识别。客户端已经为以后扩展到末尾两个字母预留解析能力。

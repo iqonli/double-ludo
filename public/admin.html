@@ -53,11 +53,22 @@
     <div id="copyPop" class="copy-pop hidden" role="status">复制成功</div>
   </main>
 
-  <div id="aboutModal" class="admin-modal hidden">
-    <section class="admin-modal-card">
-      <h2>关于</h2>
-      <div id="aboutContent"></div>
+  <div id="aboutModal" class="admin-modal hidden" role="dialog" aria-modal="true" aria-labelledby="aboutModalTitle">
+    <section class="admin-modal-card" tabindex="-1">
+      <h2 id="aboutModalTitle">关于</h2>
+      <div id="aboutContent" class="admin-modal-body"></div>
       <div class="admin-modal-actions"><button id="closeAboutButton">关闭</button></div>
+    </section>
+  </div>
+
+  <div id="adminConfirmModal" class="admin-modal hidden" role="dialog" aria-modal="true" aria-labelledby="adminConfirmTitle" aria-describedby="adminConfirmMessage">
+    <section class="admin-modal-card admin-confirm-card" tabindex="-1">
+      <h2 id="adminConfirmTitle">确认操作</h2>
+      <div class="admin-modal-body"><p id="adminConfirmMessage"></p></div>
+      <div class="admin-modal-actions">
+        <button type="button" id="adminConfirmCancel">取消</button>
+        <button type="button" id="adminConfirmAccept" class="danger">确认</button>
+      </div>
     </section>
   </div>
 

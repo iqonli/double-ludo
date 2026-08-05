@@ -116,3 +116,13 @@ test('管理页和游戏页具有手机及窄容器适配规则', () => {
   assert(gameCss.includes('comprehensive narrow-container/mobile adaptation'));
   assert(gameCss.includes('@media (max-width: 520px)'));
 });
+
+test('管理页使用响应式自定义确认弹窗且不会在窄屏铺满', () => {
+  assert(adminHtml.includes('id="adminConfirmModal"'));
+  assert(adminHtml.includes('id="adminConfirmMessage"'));
+  assert(adminJs.includes('function askConfirm('));
+  assert(!adminJs.includes('confirm('));
+  assert(adminCss.includes('Responsive modal hardening'));
+  assert(adminCss.includes('max-height:calc(100dvh - 28px)'));
+  assert(adminCss.includes('env(safe-area-inset-left)'));
+});

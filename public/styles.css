@@ -1197,3 +1197,159 @@ body.resizing-chat-panel, body.resizing-chat-panel * { cursor: ns-resize !import
   .header-game-icon, .header-game-icon svg { width: 28px; height: 28px; flex-basis: 28px; }
   .launch-value-choices { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* v0.42.2 responsive floating-dialog hardening */
+.defeat-modal {
+  align-items: center;
+  justify-items: center;
+  padding:
+    max(16px, env(safe-area-inset-top))
+    max(16px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-left));
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+.defeat-card,
+.communication-modal-card,
+.about-card,
+.ai-control-card {
+  width: min(620px, 100%);
+  max-width: 100%;
+  max-height: min(86dvh, 760px);
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(14px, 2.6vw, 22px);
+  padding: clamp(18px, 3.5vw, 28px);
+  border-radius: 16px;
+}
+.defeat-card > strong {
+  flex: 0 0 auto;
+  overflow-wrap: anywhere;
+}
+.defeat-card > .about-copy,
+.defeat-card > .model-select-label {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.communication-modal-card .modal-lan-chat-panel,
+.defeat-card .modal-lan-chat-panel {
+  flex: 1 1 auto;
+  min-height: 210px;
+  max-height: min(52dvh, 470px);
+  overflow: hidden;
+}
+.modal-lan-chat-panel .lan-chat-log-wrap,
+.modal-lan-chat-panel .lan-chat-log {
+  min-height: 72px;
+}
+.defeat-actions {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 760px) {
+  .overlay {
+    padding:
+      max(12px, env(safe-area-inset-top))
+      max(12px, env(safe-area-inset-right))
+      max(12px, env(safe-area-inset-bottom))
+      max(12px, env(safe-area-inset-left));
+  }
+  .setup-card {
+    width: min(760px, 100%);
+    max-height: calc(100dvh - 24px);
+    border-radius: 14px;
+  }
+  .defeat-modal {
+    padding:
+      max(14px, env(safe-area-inset-top))
+      max(14px, env(safe-area-inset-right))
+      max(14px, env(safe-area-inset-bottom))
+      max(14px, env(safe-area-inset-left));
+  }
+  .defeat-card,
+  .communication-modal-card,
+  .about-card,
+  .ai-control-card {
+    width: min(620px, 100%);
+    max-height: calc(100dvh - 28px);
+    padding: clamp(16px, 4.5vw, 22px);
+    border-radius: 14px;
+  }
+}
+
+@media (max-width: 520px) {
+  .defeat-card,
+  .communication-modal-card,
+  .about-card,
+  .ai-control-card {
+    gap: 14px;
+  }
+  .defeat-card strong { font-size: 18px; }
+  .defeat-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+  .defeat-actions button,
+  .defeat-card button {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+  }
+  .communication-modal-card .modal-lan-chat-panel,
+  .defeat-card .modal-lan-chat-panel {
+    min-height: 190px;
+    max-height: min(48dvh, 390px);
+  }
+  .modal-lan-chat-panel .lan-chat-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 360px) {
+  .defeat-modal {
+    padding:
+      max(12px, env(safe-area-inset-top))
+      max(12px, env(safe-area-inset-right))
+      max(12px, env(safe-area-inset-bottom))
+      max(12px, env(safe-area-inset-left));
+  }
+  .defeat-card,
+  .communication-modal-card,
+  .about-card,
+  .ai-control-card {
+    max-height: calc(100dvh - 24px);
+    padding: 14px;
+    border-radius: 13px;
+  }
+}
+
+@media (max-height: 560px) {
+  .defeat-modal {
+    align-items: center;
+    padding:
+      max(10px, env(safe-area-inset-top))
+      max(14px, env(safe-area-inset-right))
+      max(10px, env(safe-area-inset-bottom))
+      max(14px, env(safe-area-inset-left));
+  }
+  .defeat-card,
+  .communication-modal-card,
+  .about-card,
+  .ai-control-card {
+    max-height: calc(100dvh - 20px);
+    gap: 10px;
+    padding-block: 12px;
+  }
+  .communication-modal-card .modal-lan-chat-panel,
+  .defeat-card .modal-lan-chat-panel {
+    min-height: 150px;
+    max-height: min(55dvh, 300px);
+  }
+  .modal-lan-chat-panel .lan-chat-input { min-height: 52px; }
+}
