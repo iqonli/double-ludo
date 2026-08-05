@@ -258,6 +258,14 @@
 
   function initChatPanelResizers() {
     chatPanelRefs().forEach(ref => {
+      // The setup chat is one fixed section of the combined setup card.
+      // It deliberately has no independent resize state or drag handle.
+      if (ref.panel.id === 'setupLanChatPanel') {
+        ref.panel.querySelector('.lan-chat-resize-handle')?.remove();
+        ref.panel.style.height = '800px';
+        try { localStorage.removeItem('doubleFlightChatHeight:setupLanChatPanel'); } catch (_) {}
+        return;
+      }
       if (ref.panel.querySelector('.lan-chat-resize-handle')) return;
       const handle = document.createElement('div');
       handle.className = 'lan-chat-resize-handle';
@@ -275,8 +283,7 @@
         try { localStorage.setItem(`doubleFlightChatHeight:${ref.panel.id}`, String(Math.round(ref.panel.getBoundingClientRect().height))); } catch (_) {}
       };
       const move = event => {
-        const isPhoneLayout = window.matchMedia('(max-width: 760px)').matches;
-        const maxHeight = isPhoneLayout ? Math.max(1000, window.innerHeight * 2) : Math.max(260, window.innerHeight - 24);
+        const maxHeight = Math.max(260, window.innerHeight - 24);
         ref.panel.style.height = `${clamp(startHeight + event.clientY - startY, 240, maxHeight)}px`;
       };
       handle.addEventListener('pointerdown', event => {
@@ -290,17 +297,12 @@
         window.addEventListener('pointercancel', stop, { once: true });
       });
       try {
-        const isPhoneLayout = window.matchMedia('(max-width: 760px)').matches;
-        const defaultHeight = isPhoneLayout ? 1000 : 500;
-        const maximum = isPhoneLayout ? Math.max(1000, window.innerHeight * 2) : Math.max(260, window.innerHeight - 24);
+        const maximum = Math.max(260, window.innerHeight - 24);
         const saved = Number(localStorage.getItem(`doubleFlightChatHeight:${ref.panel.id}`));
-        const initialHeight = Number.isFinite(saved) && saved >= 240 ? saved : defaultHeight;
+        const initialHeight = Number.isFinite(saved) && saved >= 240 ? saved : 500;
         ref.panel.style.height = `${clamp(initialHeight, 240, maximum)}px`;
       } catch (_) {
-        const isPhoneLayout = window.matchMedia('(max-width: 760px)').matches;
-        const defaultHeight = isPhoneLayout ? 1000 : 500;
-        const maximum = isPhoneLayout ? Math.max(1000, window.innerHeight * 2) : Math.max(260, window.innerHeight - 24);
-        ref.panel.style.height = `${clamp(defaultHeight, 240, maximum)}px`;
+        ref.panel.style.height = `${clamp(500, 240, Math.max(260, window.innerHeight - 24))}px`;
       }
     });
   }

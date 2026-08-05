@@ -1486,10 +1486,54 @@ body.lan-mode #setupOverlay:not(.hidden) .setup-composite-scroll > .setup-lan-ch
 }
 
 
-/* v0.42.2 mobile chat default-height adjustment */
-@media (max-width: 760px) {
-  #setupLanChatPanel,
-  #lanChatPanel {
-    max-height: none;
+/* v0.42.2 setup chat joined-card adjustment.
+   The chat and setup sections remain sibling elements. Their common parent
+   supplies the single visual card shell only while online setup is active. */
+body.lan-mode #setupOverlay:not(.hidden) .setup-composite-scroll {
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--panel-solid);
+  box-shadow: var(--shadow);
+}
+body.lan-mode #setupOverlay:not(.hidden) .setup-composite-scroll > .setup-lan-chat-panel {
+  box-sizing: border-box;
+  height: 800px !important;
+  min-height: 800px;
+  max-height: none !important;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  box-shadow: none;
+}
+body.lan-mode #setupOverlay:not(.hidden) .setup-composite-scroll > .setup-lan-chat-panel::before {
+  border: 0;
+  border-radius: 0;
+  background: var(--panel-2);
+  box-shadow: none;
+}
+body.lan-mode #setupOverlay:not(.hidden) .setup-composite-scroll > .setup-lan-chat-panel > .lan-chat-resize-handle {
+  display: none !important;
+}
+body.lan-mode #setupOverlay:not(.hidden) .setup-composite-scroll > .setup-card {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+@media (max-width: 620px), (max-height: 720px) {
+  body.lan-mode #setupOverlay:not(.hidden) .setup-composite-scroll {
+    border-radius: 13px;
+  }
+  body.lan-mode #setupOverlay:not(.hidden) .setup-composite-scroll > .setup-lan-chat-panel {
+    height: 800px !important;
+    min-height: 800px;
+    max-height: none !important;
+  }
+  body.lan-mode #setupOverlay:not(.hidden) .setup-composite-scroll > .setup-card {
+    border-radius: 0;
   }
 }
