@@ -118,6 +118,8 @@ assert(game.includes('function renderConfirmationArrows()') && game.includes('fu
 assert(css.includes('.confirmation-direction-arrow') && css.includes('.board-direction-arrow') && css.includes('stroke: rgb(70, 73, 79)') && css.includes('stroke-width: 2.4'), '两类箭头应使用相同中性深色和线宽');
 assert(html.indexOf('class="color-test-panel"') < html.indexOf('</main>'), '调色测试应与其他主要区域处于同一主工作区层级');
 assert(css.includes('.left-panel { grid-column: 1; grid-row: 1;') && css.includes('.board-panel { grid-column: 1; grid-row: 2;') && css.includes('.right-panel { grid-column: 1; grid-row: 3;') && css.includes('.log-panel { grid-column: 1; grid-row: 4;') && css.includes('.color-test-panel { grid-column: 1; grid-row: 5;'), '窄屏应按玩家信息、棋盘、回合交互、对局记录、调色测试顺序排列');
+assert(html.includes('class="setup-scroll-surface"'), '开始页应使用独立的单一滚动容器');
+assert(css.includes('#setupOverlay .setup-scroll-surface') && css.includes('touch-action: pan-y pinch-zoom') && css.includes('overflow-y: auto'), '开始页标题、正文和页脚应共享鼠标与触控滚动面');
 console.log('ui static tests passed');
 
 assert(html.includes('class="log-panel panel-column"'), '对局记录应拆为独立面板');

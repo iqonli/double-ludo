@@ -1353,3 +1353,42 @@ body.resizing-chat-panel, body.resizing-chat-panel * { cursor: ns-resize !import
   }
   .modal-lan-chat-panel .lan-chat-input { min-height: 52px; }
 }
+
+
+/* v0.42.2 setup card: one visual shell, one scroll surface.
+   The outer card keeps the original size, radius and shadow. All setup content,
+   including the title and footer, belongs to the same native wheel/touch scroller. */
+#setupOverlay .setup-card {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+#setupOverlay .setup-scroll-surface {
+  min-width: 0;
+  min-height: 0;
+  max-height: inherit;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-width: thin;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y pinch-zoom;
+}
+#setupOverlay .setup-scroll-surface::-webkit-scrollbar { width: 10px; }
+#setupOverlay .setup-scroll-surface::-webkit-scrollbar-track { background: var(--panel-2); }
+#setupOverlay .setup-scroll-surface::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--border-strong);
+  background-clip: padding-box;
+}
+#setupOverlay .setup-heading,
+#setupOverlay .setup-section,
+#setupOverlay .setup-footer {
+  touch-action: pan-y pinch-zoom;
+}
+body:not(.lan-mode) #setupOverlay:not(.hidden) {
+  overflow: hidden;
+}
