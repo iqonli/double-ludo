@@ -185,7 +185,8 @@ assert(css.includes('scale(1.10)') && css.includes('@keyframes selectable-white'
 assert(game.includes("el.undoDefeat.textContent = '申请反悔'") && game.includes("el.acceptDefeat.textContent = '我接受'"), '联机三6遣返弹窗应显示申请反悔与我接受');
 assert(game.includes('申请反悔三6遣返！') && game.includes("el.rejectUndoRequest.textContent = '666我要是不同意呢'") && game.includes("el.allowUndoRequest.textContent = '我同意了'"), '对方应收到三6遣返反悔审批弹窗');
 assert(network.includes('requestDefeatRegret()') && network.includes('respondDefeatRegret(allow)'), '网络客户端应支持三6遣返反悔申请和回应');
-assert(game.includes('const initialHeight = Number.isFinite(saved) && saved >= 240 ? saved : 500'), 'game内局域网聊天区域默认高度应为500px');
+assert(game.includes("const defaultHeight = isPhoneLayout ? 1000 : 500") && game.includes('const initialHeight = Number.isFinite(saved) && saved >= 240 ? saved : defaultHeight'), '手机端联机聊天默认高度应为1000px，桌面端保持500px，并优先使用已保存高度');
+assert(css.includes('#setupLanChatPanel,') && css.includes('#lanChatPanel {') && css.includes('max-height: none;'), '手机端开始页和游戏页联机聊天不应被视口高度上限截断');
 
 assert(html.includes('v0.42.2 联机'), '准备页版本号应标记为联机版本');
 assert(!html.includes('标准飞行棋底盘，本地 1v1。'), '准备页不应保留旧副标题');

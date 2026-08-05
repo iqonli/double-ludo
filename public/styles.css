@@ -1484,3 +1484,12 @@ body.lan-mode #setupOverlay:not(.hidden) .setup-composite-scroll > .setup-lan-ch
     max-height: min(440px, calc(100dvh - 56px));
   }
 }
+
+
+/* v0.42.2 mobile chat default-height adjustment */
+@media (max-width: 760px) {
+  #setupLanChatPanel,
+  #lanChatPanel {
+    max-height: none;
+  }
+}

@@ -275,7 +275,8 @@
         try { localStorage.setItem(`doubleFlightChatHeight:${ref.panel.id}`, String(Math.round(ref.panel.getBoundingClientRect().height))); } catch (_) {}
       };
       const move = event => {
-        const maxHeight = Math.max(260, window.innerHeight - 24);
+        const isPhoneLayout = window.matchMedia('(max-width: 760px)').matches;
+        const maxHeight = isPhoneLayout ? Math.max(1000, window.innerHeight * 2) : Math.max(260, window.innerHeight - 24);
         ref.panel.style.height = `${clamp(startHeight + event.clientY - startY, 240, maxHeight)}px`;
       };
       handle.addEventListener('pointerdown', event => {
@@ -289,12 +290,17 @@
         window.addEventListener('pointercancel', stop, { once: true });
       });
       try {
-        const maximum = Math.max(260, window.innerHeight - 24);
+        const isPhoneLayout = window.matchMedia('(max-width: 760px)').matches;
+        const defaultHeight = isPhoneLayout ? 1000 : 500;
+        const maximum = isPhoneLayout ? Math.max(1000, window.innerHeight * 2) : Math.max(260, window.innerHeight - 24);
         const saved = Number(localStorage.getItem(`doubleFlightChatHeight:${ref.panel.id}`));
-        const initialHeight = Number.isFinite(saved) && saved >= 240 ? saved : 500;
+        const initialHeight = Number.isFinite(saved) && saved >= 240 ? saved : defaultHeight;
         ref.panel.style.height = `${clamp(initialHeight, 240, maximum)}px`;
       } catch (_) {
-        ref.panel.style.height = `${clamp(500, 240, Math.max(260, window.innerHeight - 24))}px`;
+        const isPhoneLayout = window.matchMedia('(max-width: 760px)').matches;
+        const defaultHeight = isPhoneLayout ? 1000 : 500;
+        const maximum = isPhoneLayout ? Math.max(1000, window.innerHeight * 2) : Math.max(260, window.innerHeight - 24);
+        ref.panel.style.height = `${clamp(defaultHeight, 240, maximum)}px`;
       }
     });
   }
