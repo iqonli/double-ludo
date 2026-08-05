@@ -10,6 +10,14 @@ const util = require('node:util');
 const { URL } = require('node:url');
 const { RoomManager } = require('./server/room-manager.js');
 const {
+  AccountManager,
+  FailedLoginLimiter,
+  ACCOUNT_ROOM_LIMIT,
+  IP_ACCOUNT_LIMIT,
+  LOGIN_FAILURE_WINDOW_MS,
+  maskIp
+} = require('./server/online-service.js');
+const {
   ApiError,
   jsonBody,
   sendJson,
@@ -20,7 +28,7 @@ const {
 } = require('./server/protocol.js');
 const { atomicWriteJson, loadJson, quarantineBrokenFile } = require('./server/persistence.js');
 
-const APP_VERSION = '0.42.1';
+const APP_VERSION = '0.42.2';
 const CONSOLE_LINE_LIMIT = 600;
 const consoleLines = [];
 const nativeConsole = {
@@ -54,7 +62,15 @@ if (EXPLICIT_PORT !== null && (!Number.isInteger(EXPLICIT_PORT) || EXPLICIT_PORT
   throw new Error('PORT/--port 必须是1到65535之间的整数');
 }
 const HOST = process.env.HOST || '0.0.0.0';
-const manager = new RoomManager();
+const ONLINE_MODE = process.env.ONLINE_MODE === 'true' || process.env.DEPLOY_MODE === 'render' || process.env.RENDER === 'true';
+const PUBLIC_BASE_URL = String(process.env.PUBLIC_BASE_URL || '').replace(/\/$/, '');
+const ROOM_IDLE_TTL_MS = Math.max(60_000, Number(process.env.ROOM_IDLE_TTL_MS) || 15 * 60 * 1000);
+const LONG_POLL_TIMEOUT_MS = Math.min(30_000, Math.max(5_000, Number(process.env.LONG_POLL_TIMEOUT_MS) || 25_000));
+const SERVER_INSTANCE_ID = crypto.randomBytes(12).toString('hex');
+const IP_KEY_SECRET = Buffer.from(process.env.IP_KEY_SECRET || crypto.randomBytes(32).toString('hex'));
+const manager = new RoomManager({ onlineMode: ONLINE_MODE });
+const accountManager = new AccountManager({ accountKeySecret: process.env.ACCOUNT_KEY_SECRET || crypto.randomBytes(32).toString('hex') });
+const loginLimiter = new FailedLoginLimiter(LOGIN_FAILURE_WINDOW_MS);
 let shuttingDown = false;
 let activePort = null;
 
@@ -75,6 +91,65 @@ function normalizeAddress(value) {
   return raw;
 }
 
+function clientAddress(req) {
+  if (ONLINE_MODE || process.env.TRUST_PROXY === 'true') {
+    const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+    if (forwarded) return normalizeAddress(forwarded);
+  }
+  return normalizeAddress(req.socket.remoteAddress);
+}
+
+function clientIpIdentity(req) {
+  const address = clientAddress(req);
+  return {
+    address,
+    key: crypto.createHmac('sha256', IP_KEY_SECRET).update(address || 'unknown').digest('hex'),
+    masked: maskIp(address)
+  };
+}
+
+function requestBaseUrl(req) {
+  if (PUBLIC_BASE_URL) return PUBLIC_BASE_URL;
+  const protocol = ONLINE_MODE
+    ? String(req.headers['x-forwarded-proto'] || 'https').split(',')[0].trim()
+    : (req.socket.encrypted ? 'https' : 'http');
+  const host = String(req.headers['x-forwarded-host'] || req.headers.host || `127.0.0.1:${activePort || ''}`).split(',')[0].trim();
+  return `${protocol}://${host}`.replace(/\/$/, '');
+}
+
+function allowedOrigins(req) {
+  const values = new Set(String(process.env.ALLOWED_ORIGINS || 'https://iqonli.github.io')
+    .split(',').map(value => value.trim().replace(/\/$/, '')).filter(Boolean));
+  values.add(requestBaseUrl(req));
+  return values;
+}
+
+function applyCors(req, res) {
+  const origin = String(req.headers.origin || '');
+  if (!ONLINE_MODE) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Private-Network', 'true');
+  } else if (origin) {
+    const allowFileOrigin = process.env.ALLOW_FILE_ORIGIN !== 'false';
+    if ((origin === 'null' && allowFileOrigin) || allowedOrigins(req).has(origin.replace(/\/$/, ''))) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Vary', 'Origin');
+    } else {
+      return false;
+    }
+  }
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Max-Age', '600');
+  return true;
+}
+
+function safeEqualText(left, right) {
+  const a = Buffer.from(String(left || ''));
+  const b = Buffer.from(String(right || ''));
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
 function localAddresses() {
   const values = new Set(['127.0.0.1', '::1']);
   for (const entries of Object.values(os.networkInterfaces())) {
@@ -83,14 +158,36 @@ function localAddresses() {
   return values;
 }
 
-function requireLocalAdmin(req) {
-  const remote = normalizeAddress(req.socket.remoteAddress);
-  if (!localAddresses().has(remote)) {
-    throw new ApiError(403, 'ADMIN_LOCAL_ONLY', '服务端管理接口只能在开服设备本机访问');
+function requireAdmin(req, res) {
+  if (!ONLINE_MODE) {
+    const remote = normalizeAddress(req.socket.remoteAddress);
+    if (!localAddresses().has(remote)) {
+      throw new ApiError(403, 'ADMIN_LOCAL_ONLY', '服务端管理接口只能在开服设备本机访问');
+    }
+    return;
+  }
+  const expectedPassword = String(process.env.ADMIN_PASSWORD || '');
+  if (!expectedPassword) throw new ApiError(503, 'ADMIN_NOT_CONFIGURED', '管理员密码未配置，请在Render环境变量中设置ADMIN_PASSWORD');
+  const expectedUsername = String(process.env.ADMIN_USERNAME || 'admin');
+  const authorization = String(req.headers.authorization || '');
+  let username = '';
+  let password = '';
+  if (authorization.startsWith('Basic ')) {
+    try {
+      const decoded = Buffer.from(authorization.slice(6), 'base64').toString('utf8');
+      const separator = decoded.indexOf(':');
+      username = separator >= 0 ? decoded.slice(0, separator) : decoded;
+      password = separator >= 0 ? decoded.slice(separator + 1) : '';
+    } catch (_) {}
+  }
+  if (!safeEqualText(username, expectedUsername) || !safeEqualText(password, expectedPassword)) {
+    res.setHeader('WWW-Authenticate', 'Basic realm="Double Ludo Admin", charset="UTF-8"');
+    throw new ApiError(401, 'ADMIN_AUTH_REQUIRED', '需要服务器管理员身份认证');
   }
 }
 
 function persistRooms(reason = 'change') {
+  if (ONLINE_MODE) return true;
   try {
     atomicWriteJson(AUTOSAVE_FILE, {
       autosave: true,
@@ -106,6 +203,7 @@ function persistRooms(reason = 'change') {
 }
 
 function restoreAutosave() {
+  if (ONLINE_MODE) return false;
   try {
     const saved = loadJson(AUTOSAVE_FILE);
     if (!saved) {
@@ -131,7 +229,10 @@ function mutate(reason, operation) {
 function contentPath(urlPath) {
   let root;
   let relative;
-  if (urlPath === '/' || urlPath === '/game.html') {
+  if (urlPath === '/') {
+    root = PUBLIC_DIR;
+    relative = ONLINE_MODE ? 'host.html' : 'game.html';
+  } else if (urlPath === '/game.html') {
     root = PUBLIC_DIR;
     relative = 'game.html';
   } else if (urlPath.startsWith('/shared/')) {
@@ -175,7 +276,26 @@ function adminStatePayload() {
     ...legacy,
     ...managerState,
     port: activePort,
-    gameUrl: activePort ? `http://127.0.0.1:${activePort}/game.html` : '',
+    onlineMode: ONLINE_MODE,
+    serverInstanceId: SERVER_INSTANCE_ID,
+    gameUrl: ONLINE_MODE ? `${PUBLIC_BASE_URL || ''}/game.html` : (activePort ? `http://127.0.0.1:${activePort}/game.html` : ''),
+    accounts: ONLINE_MODE ? accountManager.list().map(account => ({
+      accountId: account.id,
+      ownerIpAddress: account.ownerIpAddress,
+      ownerIpMasked: account.ownerIpMasked,
+      createdAt: new Date(account.createdAt).toISOString(),
+      ownershipStartedAt: account.ownershipStartedAt ? new Date(account.ownershipStartedAt).toISOString() : null,
+      lastAccessAt: new Date(account.lastAccessAt).toISOString(),
+      active: Boolean(account.sessionToken),
+      roomCount: manager.countRoomsForAccount(account.id),
+      roomIds: manager.roomsForAccount(account.id).map(room => room.roomId)
+    })) : [],
+    onlinePlayers: ONLINE_MODE ? manager.onlinePlayers().map(player => ({
+      ...player,
+      accountId: player.ownerAccountId || null
+    })) : [],
+    onlinePlayerCount: ONLINE_MODE ? manager.onlinePlayerCount() : 0,
+    activeRoomCount: manager.activeRoomCount(),
     consoleText: consoleLines.join('\n')
   };
 }
@@ -189,56 +309,13 @@ function legacyRoomId() {
   return manager.roomIds()[0] || manager.ensureInitialRoom().roomId;
 }
 
+function adminNotConfiguredHtml() {
+  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>双飞服务端管理配置</title><style>body{margin:0;background:#eef1f5;color:#20242a;font-family:system-ui,"Microsoft YaHei",sans-serif}.card{width:min(680px,calc(100% - 32px));margin:72px auto;padding:24px;border:1px solid #ccd2da;border-radius:14px;background:#fff;box-shadow:0 8px 26px #0001}h1{margin-top:0;font-size:24px}code{padding:2px 6px;border-radius:5px;background:#eef1f5}p{line-height:1.7}a{color:#2457d6}</style></head><body><main class="card"><h1>管理员密码尚未配置</h1><p>请在Render服务的环境变量中设置<code>ADMIN_PASSWORD</code>，保存并重新部署。用户名默认是<code>admin</code>，也可以通过<code>ADMIN_USERNAME</code>修改。</p><p>配置完成后重新访问<a href="/admin">/admin</a>，浏览器会显示Basic Authentication登录窗口。</p></main></body></html>`;
+}
+
 function adminHtml() {
-  return `<!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>双飞 v0.42.1 多房间局域网服务端</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDQ4IiBoZWlnaHQ9IjIwNDgiIHZpZXdCb3g9IjAgMCAyMDQ4IDIwNDgiIHJvbGU9ImltZyIgYXJpYS1sYWJlbD0i5Y+M6aOe6JOd6Imy5qOL5a2Q5Zu+5qCHIj48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMDI0IDEwMjQpIHNjYWxlKDIxLjMzMzMzMzMzMzMzMzMzMikgdHJhbnNsYXRlKC0yNTYgLTI1NikiPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDI1NiAyNTYpIj48Y2lyY2xlIGN4PSIwIiBjeT0iMCIgcj0iNDUuMjUiIGZpbGw9IiMzMTg1ZDgiIHN0cm9rZT0iIzI4NjVhMCIgc3Ryb2tlLXdpZHRoPSI1LjUiLz48bGluZSB4MT0iMCIgeTE9Ii0yMC43MzYiIHgyPSIxNC42NjI1NjYyMTQ2ODQyNDkiIHkyPSItNi4wNzM0MzM3ODUzMTU3NTIiIHN0cm9rZT0icmdiKDcwLCA3MywgNzkpIiBzdHJva2Utd2lkdGg9IjYuNjI0MDAwMDAwMDAwMDAwNiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PGxpbmUgeDE9IjAiIHkxPSItMjAuNzM2IiB4Mj0iLTE0LjY2MjU2NjIxNDY4NDI0OSIgeTI9Ii02LjA3MzQzMzc4NTMxNTc1MiIgc3Ryb2tlPSJyZ2IoNzAsIDczLCA3OSkiIHN0cm9rZS13aWR0aD0iNi42MjQwMDAwMDAwMDAwMDA2IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48bGluZSB4MT0iMCIgeTE9Ii0yMC43MzYiIHgyPSIwIiB5Mj0iMjAuNzM2IiBzdHJva2U9InJnYig3MCwgNzMsIDc5KSIgc3Ryb2tlLXdpZHRoPSI2LjYyNDAwMDAwMDAwMDAwMDYiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjwvZz48L2c+PC9zdmc+">
-<style>
-:root{color-scheme:light dark;font-family:system-ui,"Microsoft YaHei",sans-serif;--bg:#eef1f5;--panel:#fff;--panel2:#f8f9fb;--text:#20242a;--muted:#68717d;--border:#ccd2da;--accent:#2457d6;--accent-soft:#eaf0ff}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text)}.wrap{max-width:1500px;margin:auto;padding:18px}.topbar{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:14px}.topbar h1{margin:0;font-size:24px}.top-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.game-link{color:var(--accent);font-size:13px;overflow-wrap:anywhere}.dashboard{display:grid;grid-template-columns:minmax(280px,340px) minmax(0,1fr);gap:14px;align-items:start}.card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px;box-shadow:0 8px 26px #0001}.side-column{display:grid;gap:14px;position:sticky;top:14px}.rooms-grid{display:grid;grid-template-columns:1fr;gap:14px}.room-card{cursor:pointer;transition:border-color .15s,box-shadow .15s}.room-card.selected{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 22%,transparent),0 8px 26px #0001}.room-head{display:flex;align-items:center;justify-content:space-between;gap:8px}.room-title{font-size:18px;font-weight:700}.room-state{font-size:12px;color:var(--muted)}.codes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}.code{border:1px solid var(--border);border-radius:10px;padding:10px;min-width:0}.code strong{display:block;font-size:27px;letter-spacing:.12em;font-variant-numeric:tabular-nums}.code-status{display:block;margin:3px 0 8px;color:var(--muted);font-size:12px}.code-buttons{display:grid;grid-template-columns:1fr;gap:5px}.room-actions{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}button{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid #aeb6c1;background:var(--panel);color:inherit;cursor:pointer}button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}button.danger{color:#a33a3a;border-color:#d7a0a0}button:disabled{opacity:.5;cursor:not-allowed}.muted{color:var(--muted)}.room-log{height:124px;overflow:auto;margin:0;padding:9px;border:1px solid var(--border);border-radius:8px;background:var(--panel2);font:11px/1.5 "Cascadia Mono",Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere}.chat-card{display:grid;grid-template-rows:auto auto minmax(80px,1fr) auto auto auto auto;gap:8px;position:relative;isolation:isolate;min-height:300px;max-height:calc(100dvh - 28px);overflow:hidden}.chat-card::before{content:"";position:absolute;inset:0;border-radius:inherit;background:var(--panel);border:1px solid transparent;z-index:-1;pointer-events:none}.chat-card.chat-bg-shake::before{animation:chat-bg-shake .5s cubic-bezier(.22,.72,.25,1)}@keyframes chat-bg-shake{0%,100%{transform:translateX(0);background:var(--panel)}14%{transform:translateX(-3px);background:color-mix(in srgb,#faefc0 28%,var(--panel))}32%{transform:translateX(4px);background:color-mix(in srgb,#faefc0 64%,var(--panel));box-shadow:0 0 0 3px color-mix(in srgb,#faefc0 22%,transparent)}52%{transform:translateX(-2px);background:color-mix(in srgb,#faefc0 42%,var(--panel))}72%{transform:translateX(1px);background:color-mix(in srgb,#faefc0 18%,var(--panel))}}.chat-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}.chat-heading h2{margin:0;font-size:16px}.chat-room-select{width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--panel);color:inherit}.chat-log-wrap{position:relative;height:100%;min-height:80px}.chat-log{height:100%;overflow:auto;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--panel2);font-size:12px}.chat-unread{position:absolute;right:10px;bottom:9px;z-index:3;border:1px solid #b89524;border-radius:999px;padding:5px 10px;background:var(--panel);color:#d0a91e;font-size:12px;font-weight:800;box-shadow:0 4px 14px #0003}.chat-empty{color:var(--muted);font-size:12px}.chat-message{padding:6px 4px;border-bottom:1px solid var(--border)}.chat-message:last-child{border-bottom:0}.chat-message.own{background:#dfeff2;border-radius:6px;padding-left:7px;padding-right:7px;color:#20242a}.chat-message.server{background:#f1f2d6;border-radius:6px;padding-left:7px;padding-right:7px;color:#20242a}.chat-meta{color:var(--muted);font-size:12px}.chat-content{margin-top:2px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;line-height:1.5}textarea{width:100%;min-height:76px;resize:vertical;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--panel);color:inherit;font:12px/1.5 inherit}.chat-actions{display:flex;gap:7px;align-items:center}.chat-mode-button{flex:1;color:var(--muted);font-size:12px;white-space:normal;line-height:1.25}.chat-resize-handle{position:relative;height:10px;margin:0 -4px -5px;cursor:ns-resize;touch-action:none;border-radius:0 0 9px 9px}.chat-resize-handle:before,.chat-resize-handle:after{content:"";position:absolute;left:50%;width:42px;height:1px;transform:translateX(-50%);background:var(--border)}.chat-resize-handle:before{top:3px}.chat-resize-handle:after{top:6px}.chat-resize-handle:hover{background:var(--accent-soft)}body.resizing-chat,body.resizing-chat *{cursor:ns-resize!important;user-select:none!important}.notice{min-height:20px;color:var(--accent);font-size:12px}.console-card{grid-column:1/-1}.admin-modal{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:20px;background:#0007}.admin-modal-card{width:min(600px,100%);padding:24px;border:1px solid var(--border);border-radius:14px;background:var(--panel);box-shadow:0 16px 50px #0004}.admin-modal-card{text-align:left}.admin-modal-card h2{margin:0 0 18px;text-align:left}.admin-modal-card p{font-size:13px;line-height:1.7;overflow-wrap:anywhere}.admin-modal-actions{display:flex;justify-content:flex-end;margin-top:18px}.console-log{height:280px;overflow:auto;margin:0;padding:12px;border-radius:9px;background:#11151a;color:#dce5ef;font:12px/1.5 "Cascadia Mono",Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere}.hidden{display:none}
-@media(max-width:900px){.dashboard{grid-template-columns:1fr}.side-column{position:static}.rooms-grid{grid-template-columns:1fr}.codes{grid-template-columns:1fr}.wrap{padding:9px}.topbar{align-items:flex-start;flex-direction:column}}
-@media(prefers-color-scheme:dark){:root{--bg:#15181d;--panel:#20242a;--panel2:#191d22;--text:#e8ecf2;--muted:#aab2bd;--border:#444b55;--accent-soft:#26344f}.console-log{background:#0d1014}}
-</style></head><body><main class="wrap">
-<header class="topbar"><div><h1>双飞 v0.42.1 多房间服务端</h1><div class="muted">登录码自动绑定房间，客户端无需输入房间号。</div></div><div class="top-actions"><button id="createRoom" class="primary">新建房间</button><button id="aboutButton">关于</button><a id="gameLink" class="game-link" target="_blank">游戏端</a></div></header>
-<div class="dashboard">
-  <aside class="side-column">
-    <section id="chatCard" class="card chat-card">
-      <div class="chat-heading"><h2>局域网聊天</h2><span id="chatCount">0</span></div>
-      <select id="chatRoomSelect" class="chat-room-select" aria-label="选择聊天房间"></select>
-      <div class="chat-log-wrap"><div id="chatLog" class="chat-log" role="log" aria-live="polite"></div><button id="chatUnread" class="chat-unread hidden">未读 0</button></div>
-      <textarea id="chatInput" maxlength="2000" placeholder=""></textarea>
-      <div class="chat-actions"><button id="chatHint" class="chat-mode-button">当前：Enter发送</button><button id="sendChat" class="primary">发送</button></div>
-      <div id="copyNotice" class="notice"></div>
-      <div id="chatResizeHandle" class="chat-resize-handle" role="separator" aria-label="拖动调整聊天卡片高度" aria-orientation="horizontal"></div>
-    </section>
-  </aside>
-  <section><div id="roomsGrid" class="rooms-grid"></div></section>
-  <section class="card console-card"><h2>服务端控制台</h2><pre id="consoleLog" class="console-log"></pre></section>
-</div>
-<input id="importFile" class="hidden" type="file" accept="application/json,.json">
-</main>
-<div id="aboutModal" class="admin-modal hidden"><div class="admin-modal-card"><h2>关于</h2><p>by IQ Online Studio, github.com/iqonli/double-ludo</p><p>本项目使用MIT许可证。Copyright © 2026 IQ Online Studio.</p><div class="admin-modal-actions"><button id="closeAboutButton" class="primary">关闭</button></div></div></div>
-<script>
-const $=id=>document.getElementById(id);let latest=null;let selectedRoomId=null;let pendingImportRoomId=null;let chatSendKeyMode='enter';let lastChatByRoom=new Map();let unreadByRoom=new Map();let followByRoom=new Map();let lastNotice='';
-async function api(path,body){const options=body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)};const response=await fetch(path,options);let data=null;try{data=await response.json()}catch(_){data=null}if(!response.ok)throw new Error(data&&data.message?data.message:'HTTP '+response.status);return data}
-function roomById(id){return latest&&Array.isArray(latest.rooms)?latest.rooms.find(r=>Number(r.roomId)===Number(id)):null}
-function statusLabel(status){return status==='playing'?'对局中':status==='lobby'?'准备开局':'已关闭'}
-function escapeText(value){return String(value==null?'':value)}
-function copyText(value,label){if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(value).then(()=>notice('已复制'+label+'：'+value)).catch(e=>notice('复制失败：'+e.message));return}const t=document.createElement('textarea');t.value=value;document.body.appendChild(t);t.select();document.execCommand('copy');t.remove();notice('已复制'+label+'：'+value)}
-function notice(text){lastNotice=text;$('copyNotice').textContent=text;setTimeout(()=>{if($('copyNotice').textContent===text)$('copyNotice').textContent=''},2200)}
-function shakeChatBackground(){const card=$('chatCard');card.classList.remove('chat-bg-shake');void card.offsetWidth;card.classList.add('chat-bg-shake');setTimeout(()=>card.classList.remove('chat-bg-shake'),540)}
-function renderRooms(){const grid=$('roomsGrid');grid.replaceChildren();const rooms=latest&&Array.isArray(latest.rooms)?latest.rooms:[];if(!rooms.length){const empty=document.createElement('div');empty.className='card muted';empty.textContent='暂无房间。';grid.appendChild(empty);return}for(const room of rooms){const card=document.createElement('article');card.className='card room-card'+(Number(room.roomId)===Number(selectedRoomId)?' selected':'');card.dataset.roomId=room.roomId;card.onclick=e=>{if(e.target.closest('button'))return;selectRoom(room.roomId)};const head=document.createElement('div');head.className='room-head';head.innerHTML='<div class="room-title">房间 '+room.roomId+'</div><div class="room-state">'+statusLabel(room.roomStatus)+' · v'+room.version+'</div>';card.appendChild(head);const codes=document.createElement('div');codes.className='codes';for(const role of ['A','B']){const code=room.codes&&room.codes[role]?room.codes[role]:'-----';const box=document.createElement('section');box.className='code';box.innerHTML='<span>玩家'+role+'登录码</span><strong>'+code+'</strong><span class="code-status">'+(room.connected&&room.connected[role]?'已登录':'未登录')+'</span>';const buttons=document.createElement('div');buttons.className='code-buttons';const copy=document.createElement('button');copy.textContent='复制登录码';copy.disabled=code==='-----';copy.onclick=()=>copyText(code,'登录码');const bundle=document.createElement('button');bundle.textContent='复制端口+登录码';bundle.disabled=code==='-----';bundle.onclick=()=>copyText(String(latest.port)+'-'+code,'端口+登录码');buttons.append(copy,bundle);box.appendChild(buttons);codes.appendChild(box)}card.appendChild(codes);const actions=document.createElement('div');actions.className='room-actions';const defs=room.roomStatus==='closed'?[['开房','open','primary']]:[['重新开局','restart',''],['刷新登录码','refresh',''],['导出对局','export',''],['恢复对局','import',''],['关闭房间','close','danger']];for(const def of defs){const b=document.createElement('button');b.textContent=def[0];if(def[2])b.className=def[2];b.onclick=()=>roomAction(room.roomId,def[1]);actions.appendChild(b)}card.appendChild(actions);const logTitle=document.createElement('div');logTitle.className='muted';logTitle.textContent='日志';card.appendChild(logTitle);const log=document.createElement('pre');log.className='room-log';log.textContent=Array.isArray(room.roomLog)&&room.roomLog.length?room.roomLog.join('\\n'):'暂无日志';card.appendChild(log);grid.appendChild(card)}}
-function renderChat(){const rooms=latest&&Array.isArray(latest.rooms)?latest.rooms:[];const select=$('chatRoomSelect');select.replaceChildren();for(const room of rooms){const option=document.createElement('option');option.value=String(room.roomId);option.textContent='房间 '+room.roomId+' · '+statusLabel(room.roomStatus);select.appendChild(option)}if(!rooms.length){selectedRoomId=null}else if(!roomById(selectedRoomId)){selectedRoomId=rooms[0].roomId}select.value=String(selectedRoomId==null?'':selectedRoomId);const room=roomById(selectedRoomId);const roomId=Number(selectedRoomId);const log=$('chatLog');const near=followByRoom.get(roomId)!==false;const previousTop=log.scrollTop;const messages=room&&Array.isArray(room.chatMessages)?room.chatMessages:[];const newVersion=room?Number(room.chatVersion):-1;const oldVersion=lastChatByRoom.get(roomId);const incoming=oldVersion!==undefined&&newVersion>oldVersion&&messages.length&&messages[messages.length-1].player!=='SERVER';let unread=Number(unreadByRoom.get(roomId)||0);if(incoming){shakeChatBackground();unread=near?0:unread+Math.max(1,newVersion-oldVersion)}log.replaceChildren();$('chatCount').textContent=String(messages.length);if(!messages.length){const empty=document.createElement('div');empty.className='chat-empty';empty.textContent=room&&room.roomStatus!=='closed'?'暂无消息。':'请选择已开启的房间。';log.appendChild(empty)}else for(const msg of messages){const item=document.createElement('article');item.className='chat-message'+(msg.player==='SERVER'?' server':'');const meta=document.createElement('div');meta.className='chat-meta';meta.textContent=escapeText(msg.time)+' '+escapeText(msg.name)+':';const content=document.createElement('div');content.className='chat-content';content.textContent=escapeText(msg.content);item.append(meta,content);log.appendChild(item)}if(near)requestAnimationFrame(()=>{log.scrollTop=log.scrollHeight});else requestAnimationFrame(()=>{log.scrollTop=previousTop});unreadByRoom.set(roomId,unread);$('chatUnread').textContent='未读 '+unread;$('chatUnread').classList.toggle('hidden',unread<=0);const enabled=Boolean(room&&room.roomStatus!=='closed');$('chatInput').disabled=!enabled;$('chatHint').disabled=!enabled;$('sendChat').disabled=!enabled||!$('chatInput').value.trim();$('chatHint').textContent=enabled?'当前：'+(chatSendKeyMode==='enter'?'Enter':'Shift+Enter')+'发送':'请选择已开启房间';if(room)lastChatByRoom.set(roomId,newVersion)}
-function paint(data){latest=data;if(selectedRoomId==null&&data.rooms&&data.rooms.length)selectedRoomId=data.rooms[0].roomId;$('gameLink').href=data.gameUrl||location.origin+'/game.html';$('gameLink').textContent=data.gameUrl||'游戏端';renderRooms();renderChat();const pre=$('consoleLog');const near=pre.scrollHeight-pre.clientHeight-pre.scrollTop<55;pre.textContent=data.consoleText||'';if(near)requestAnimationFrame(()=>{pre.scrollTop=pre.scrollHeight})}
-async function status(){try{paint(await api('/api/admin/status'))}catch(e){notice('读取状态失败：'+e.message)}}
-function selectRoom(roomId){selectedRoomId=Number(roomId);renderRooms();renderChat()}
-async function roomAction(roomId,action){try{if(action==='export'){location.href='/api/admin/export-game?roomId='+encodeURIComponent(roomId)+'&download='+Date.now();return}if(action==='import'){pendingImportRoomId=Number(roomId);$('importFile').value='';$('importFile').click();return}const paths={open:'/api/admin/room/open',restart:'/api/admin/room/restart',refresh:'/api/admin/room/refresh-codes',close:'/api/admin/room/close'};paint(await api(paths[action],{roomId:Number(roomId)}));selectedRoomId=Number(roomId);notice('房间'+roomId+'操作完成')}catch(e){notice('操作失败：'+e.message);await status()}}
-$('createRoom').onclick=async()=>{try{const data=await api('/api/admin/rooms/create',{});paint(data);selectedRoomId=data.createdRoomId;renderRooms();renderChat();notice('已新建房间'+data.createdRoomId)}catch(e){notice('新建失败：'+e.message)}};
-$('chatRoomSelect').onchange=()=>selectRoom(Number($('chatRoomSelect').value));$('chatInput').oninput=renderChat;$('chatHint').onclick=()=>{chatSendKeyMode=chatSendKeyMode==='enter'?'shift-enter':'enter';renderChat()};$('sendChat').onclick=async()=>{const content=$('chatInput').value.replace(/\\r\\n?/g,'\\n').trim();if(!content||selectedRoomId==null)return;try{paint(await api('/api/admin/chat',{roomId:Number(selectedRoomId),content}));$('chatInput').value='';renderChat()}catch(e){notice('发送失败：'+e.message)}};$('chatInput').onkeydown=e=>{if(e.key!=='Enter')return;const send=chatSendKeyMode==='enter'?!e.shiftKey:e.shiftKey;if(send){e.preventDefault();$('sendChat').click()}};
-$('chatUnread').onclick=()=>{const log=$('chatLog');const roomId=Number(selectedRoomId);unreadByRoom.set(roomId,0);followByRoom.set(roomId,true);$('chatUnread').classList.add('hidden');log.scrollTop=log.scrollHeight};$('chatLog').onscroll=()=>{const log=$('chatLog');const roomId=Number(selectedRoomId);const atBottom=log.scrollHeight-log.clientHeight-log.scrollTop<24;followByRoom.set(roomId,atBottom);if(atBottom){unreadByRoom.set(roomId,0);$('chatUnread').classList.add('hidden')}};$('aboutButton').onclick=()=>$('aboutModal').classList.remove('hidden');$('closeAboutButton').onclick=()=>$('aboutModal').classList.add('hidden');$('aboutModal').onclick=e=>{if(e.target===$('aboutModal'))$('aboutModal').classList.add('hidden')};$('importFile').onchange=async()=>{const file=$('importFile').files[0];if(!file||pendingImportRoomId==null)return;try{const parsed=JSON.parse(await file.text());paint(await api('/api/admin/import-game',{roomId:pendingImportRoomId,gameFile:parsed}));selectedRoomId=pendingImportRoomId;notice('已恢复：'+file.name)}catch(e){notice('恢复失败，原局未改变：'+e.message);await status()}finally{pendingImportRoomId=null}};
-(()=>{const card=$('chatCard'),handle=$('chatResizeHandle');let startY=0,startHeight=0;try{const saved=Number(localStorage.getItem('doubleFlightAdminChatHeight'));if(Number.isFinite(saved)&&saved>=300)card.style.height=Math.min(saved,window.innerHeight-28)+'px'}catch(_){}const move=e=>{card.style.height=Math.max(300,Math.min(window.innerHeight-28,startHeight+e.clientY-startY))+'px'};const stop=()=>{document.body.classList.remove('resizing-chat');window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',stop);window.removeEventListener('pointercancel',stop);try{localStorage.setItem('doubleFlightAdminChatHeight',String(Math.round(card.getBoundingClientRect().height)))}catch(_){}};handle.onpointerdown=e=>{e.preventDefault();startY=e.clientY;startHeight=card.getBoundingClientRect().height;handle.setPointerCapture&&handle.setPointerCapture(e.pointerId);document.body.classList.add('resizing-chat');window.addEventListener('pointermove',move);window.addEventListener('pointerup',stop,{once:true});window.addEventListener('pointercancel',stop,{once:true})}})();
-status();setInterval(status,500);
-</script></body></html>`;
+  const template = fs.readFileSync(path.join(PUBLIC_DIR, 'admin.html'), 'utf8');
+  return template.replaceAll('__APP_VERSION__', APP_VERSION);
 }
 
 function roomIdFromBody(body) {
@@ -247,23 +324,169 @@ function roomIdFromBody(body) {
   return roomId;
 }
 
+function roomInvitePayload(room, baseUrl) {
+  const codes = room.auth.publicCodes();
+  const invite = code => `${baseUrl}/game.html?port=${encodeURIComponent(code)}&URL=${encodeURIComponent(baseUrl)}`;
+  return {
+    roomId: room.roomId,
+    roomStatus: room.status,
+    codes: { A: codes.A, B: codes.B },
+    invites: { A: invite(codes.A), B: invite(codes.B) },
+    createdAt: new Date(room.createdAt).toISOString(),
+    lastPlayerActivityAt: new Date(room.lastPlayerActivityAt()).toISOString(),
+    connected: room.connected(),
+    ownerIpAddress: room.createdByIpAddress,
+    ownerIpMasked: room.createdByIpMasked
+  };
+}
+
+function accountStatePayload(account, req) {
+  const identity = clientIpIdentity(req);
+  const rooms = manager.roomsForAccount(account.id);
+  const baseUrl = requestBaseUrl(req);
+  return {
+    ok: true,
+    accountId: account.id,
+    ownerIpAddress: account.ownerIpAddress,
+    ownerIpMasked: account.ownerIpMasked,
+    roomCount: rooms.length,
+    accountRoomLimit: ACCOUNT_ROOM_LIMIT,
+    ipAccountCount: accountManager.countOwnedAccounts(identity.key),
+    ipAccountLimit: IP_ACCOUNT_LIMIT,
+    rooms: rooms.map(room => roomInvitePayload(room, baseUrl)),
+    serverUrl: baseUrl,
+    serverInstanceId: SERVER_INSTANCE_ID
+  };
+}
+
+function touchPlayerRequest(body, req) {
+  if (!body || !body.sessionToken) return null;
+  return manager.touchSession(body.sessionToken, clientIpIdentity(req));
+}
+
 async function handleApi(req, res, url) {
   const pathname = url.pathname;
-  if (pathname.startsWith('/api/admin/')) requireLocalAdmin(req);
+  if (pathname.startsWith('/api/admin/')) requireAdmin(req, res);
 
   if (req.method === 'GET' && pathname === '/api/info') {
     return sendJson(res, 200, {
       ok: true,
-      name: 'double-flight-lan-server',
+      name: 'double-flight-server',
       version: APP_VERSION,
+      onlineMode: ONLINE_MODE,
+      serverInstanceId: SERVER_INSTANCE_ID,
       port: activePort,
       portMode: EXPLICIT_PORT === null ? 'random' : 'explicit',
       portRange: [PORT_MIN, PORT_MAX],
       roomCount: manager.rooms.size,
+      activeRoomCount: manager.activeRoomCount(),
+      onlinePlayerCount: manager.onlinePlayerCount(),
       roomStatus: manager.rooms.size ? 'multiroom' : 'closed',
-      pollingIntervalMs: 500,
-      autosave: true
+      pollingMode: 'long-poll',
+      longPollTimeoutMs: LONG_POLL_TIMEOUT_MS,
+      loginCodeFormat: ONLINE_MODE ? '5digits+letter' : '5digits',
+      autosave: !ONLINE_MODE,
+      accountRoomLimit: ONLINE_MODE ? ACCOUNT_ROOM_LIMIT : null,
+      ipAccountLimit: ONLINE_MODE ? IP_ACCOUNT_LIMIT : null
     });
+  }
+
+  if (ONLINE_MODE && req.method === 'POST' && pathname === '/api/account/login') {
+    const body = await jsonBody(req, 8 * 1024);
+    const identity = clientIpIdentity(req);
+    const result = await accountManager.login(body.password, identity.key, identity.address, identity.masked);
+    if (result.takenOver) manager.transferAccountRooms(result.account.id, identity);
+    const evictedAccounts = [];
+    for (const evicted of result.evictedAccounts || []) {
+      const deletedRooms = manager.deleteRoomsForAccount(evicted.id);
+      evictedAccounts.push({ accountId: evicted.id, deletedRoomIds: deletedRooms.map(item => item.roomId) });
+    }
+    return sendJson(res, 200, {
+      ...accountStatePayload(result.account, req),
+      sessionToken: result.sessionToken,
+      created: result.created,
+      takenOver: result.takenOver,
+      evictedAccounts
+    });
+  }
+  if (ONLINE_MODE && req.method === 'POST' && pathname === '/api/account/state') {
+    const body = await jsonBody(req, 8 * 1024);
+    const identity = clientIpIdentity(req);
+    const account = accountManager.validate(body.sessionToken, identity.key);
+    return sendJson(res, 200, accountStatePayload(account, req));
+  }
+  if (ONLINE_MODE && req.method === 'POST' && pathname === '/api/account/logout') {
+    const body = await jsonBody(req, 8 * 1024);
+    const identity = clientIpIdentity(req);
+    accountManager.logout(body.sessionToken, identity.key);
+    return sendJson(res, 200, { ok: true });
+  }
+  if (ONLINE_MODE && req.method === 'POST' && pathname === '/api/account/room/create') {
+    const body = await jsonBody(req, 8 * 1024);
+    const identity = clientIpIdentity(req);
+    const account = accountManager.validate(body.sessionToken, identity.key);
+    if (manager.countRoomsForAccount(account.id) >= ACCOUNT_ROOM_LIMIT) {
+      throw new ApiError(409, 'ACCOUNT_ROOM_LIMIT', `每个账号最多同时拥有${ACCOUNT_ROOM_LIMIT}个房间`);
+    }
+    const room = manager.createRoom({
+      ownerAccountId: account.id,
+      createdByIpKey: identity.key,
+      createdByIpAddress: identity.address,
+      createdByIpMasked: identity.masked
+    });
+    return sendJson(res, 200, {
+      ...accountStatePayload(account, req),
+      createdRoom: roomInvitePayload(room, requestBaseUrl(req))
+    });
+  }
+  if (ONLINE_MODE && req.method === 'POST' && pathname === '/api/account/room/export') {
+    const body = await jsonBody(req, 8 * 1024);
+    const identity = clientIpIdentity(req);
+    const account = accountManager.validate(body.sessionToken, identity.key);
+    const room = manager.getRoom(Number(body.roomId));
+    if (room.ownerAccountId !== account.id) throw new ApiError(403, 'ROOM_NOT_OWNED', '不能导出其他账号的房间');
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    return sendJson(res, 200, {
+      ok: true,
+      filename: `double-flight-room-${room.roomId}-${stamp}.json`,
+      gameFile: manager.exportRoom(room.roomId)
+    });
+  }
+  if (ONLINE_MODE && req.method === 'POST' && pathname === '/api/account/room/import') {
+    const body = await jsonBody(req, 2 * 1024 * 1024);
+    const identity = clientIpIdentity(req);
+    const account = accountManager.validate(body.sessionToken, identity.key);
+    const room = manager.getRoom(Number(body.roomId));
+    if (room.ownerAccountId !== account.id) throw new ApiError(403, 'ROOM_NOT_OWNED', '不能恢复其他账号的房间');
+    manager.importRoom(room.roomId, body.gameFile || body.file);
+    return sendJson(res, 200, accountStatePayload(account, req));
+  }
+
+  if (ONLINE_MODE && req.method === 'POST' && pathname === '/api/account/room/delete') {
+    const body = await jsonBody(req, 8 * 1024);
+    const identity = clientIpIdentity(req);
+    const account = accountManager.validate(body.sessionToken, identity.key);
+    const room = manager.getRoom(Number(body.roomId));
+    if (room.ownerAccountId !== account.id) throw new ApiError(403, 'ROOM_NOT_OWNED', '不能删除其他账号的房间');
+    manager.deleteRoom(room.roomId);
+    return sendJson(res, 200, accountStatePayload(account, req));
+  }
+  if (ONLINE_MODE && req.method === 'POST' && pathname === '/api/account/delete') {
+    const body = await jsonBody(req, 8 * 1024);
+    const identity = clientIpIdentity(req);
+    const account = accountManager.validate(body.sessionToken, identity.key);
+    manager.deleteRoomsForAccount(account.id);
+    accountManager.remove(account);
+    return sendJson(res, 200, { ok: true });
+  }
+
+  if (ONLINE_MODE && req.method === 'POST' && pathname === '/api/admin/account/delete') {
+    const body = await jsonBody(req, 8 * 1024);
+    const account = accountManager.getById(body.accountId);
+    if (!account) throw new ApiError(404, 'ACCOUNT_NOT_FOUND', '账号不存在');
+    manager.deleteRoomsForAccount(account.id);
+    accountManager.remove(account);
+    return sendJson(res, 200, adminStatePayload());
   }
 
   if (req.method === 'GET' && pathname === '/api/admin/status') return sendJson(res, 200, adminStatePayload());
@@ -312,7 +535,18 @@ async function handleApi(req, res, url) {
 
   if (req.method === 'POST' && pathname === '/api/login') {
     const body = await jsonBody(req);
-    return sendJson(res, 200, manager.login(body.code));
+    const identity = clientIpIdentity(req);
+    // A failed attempt starts a one-second cooldown for subsequent attempts
+    // from this IP. Successful logins never start a cooldown.
+    loginLimiter.assertAllowed(identity.key);
+    try {
+      const payload = manager.login(body.code, identity);
+      loginLimiter.recordSuccess(identity.key);
+      return sendJson(res, 200, { ...payload, serverInstanceId: SERVER_INSTANCE_ID });
+    } catch (error) {
+      if (error && error.code === 'INVALID_LOGIN_CODE') loginLimiter.recordFailure(identity.key);
+      throw error;
+    }
   }
   if (req.method === 'POST' && pathname === '/api/logout') {
     const body = await jsonBody(req);
@@ -320,51 +554,70 @@ async function handleApi(req, res, url) {
   }
   if (req.method === 'POST' && pathname === '/api/poll') {
     const body = await jsonBody(req);
-    const payload = manager.poll(body.sessionToken, body.knownVersion, body.knownChatVersion);
-    return payload ? sendJson(res, 200, payload) : sendNoContent(res);
+    touchPlayerRequest(body, req);
+    let payload = manager.poll(body.sessionToken, body.knownVersion, body.knownChatVersion);
+    if (!payload) {
+      await manager.waitForUpdate(body.sessionToken, body.knownVersion, body.knownChatVersion, LONG_POLL_TIMEOUT_MS, req, res);
+      if (res.writableEnded || res.destroyed) return;
+      payload = manager.poll(body.sessionToken, body.knownVersion, body.knownChatVersion);
+    }
+    return payload
+      ? sendJson(res, 200, { ...payload, serverInstanceId: SERVER_INSTANCE_ID })
+      : sendNoContent(res);
   }
   if (req.method === 'POST' && pathname === '/api/chat') {
     const body = await jsonBody(req, 16 * 1024);
+    touchPlayerRequest(body, req);
     return sendJson(res, 200, mutate('chat', () => manager.sendChat(body.sessionToken, body.content)));
   }
   if (req.method === 'POST' && pathname === '/api/lobby-config') {
     const body = await jsonBody(req);
+    touchPlayerRequest(body, req);
     return sendJson(res, 200, mutate('lobby-config', () => manager.setLobbyConfig(body.sessionToken, body.config)));
   }
   if (req.method === 'POST' && pathname === '/api/lobby-ready') {
     const body = await jsonBody(req);
+    touchPlayerRequest(body, req);
     return sendJson(res, 200, mutate('lobby-ready', () => manager.setLobbyReady(body.sessionToken, body.ready)));
   }
   if (req.method === 'POST' && pathname === '/api/lobby-order-roll') {
     const body = await jsonBody(req);
+    touchPlayerRequest(body, req);
     return sendJson(res, 200, mutate('lobby-order-roll', () => manager.rollLobbyOrder(body.sessionToken)));
   }
   if (req.method === 'POST' && pathname === '/api/start-game') {
     const body = await jsonBody(req);
+    touchPlayerRequest(body, req);
     return sendJson(res, 200, mutate('start-game', () => manager.startGame(body.sessionToken, body.config)));
   }
   if (req.method === 'POST' && pathname === '/api/action') {
     const body = await jsonBody(req);
+    touchPlayerRequest(body, req);
     return sendJson(res, 200, mutate('action', () => manager.action(body.sessionToken, body)));
   }
   if (req.method === 'POST' && pathname === '/api/command') {
     const body = await jsonBody(req);
+    touchPlayerRequest(body, req);
     return sendJson(res, 200, mutate('command', () => manager.command(body.sessionToken, body)));
   }
   if (req.method === 'POST' && pathname === '/api/undo-request') {
     const body = await jsonBody(req);
+    touchPlayerRequest(body, req);
     return sendJson(res, 200, mutate('undo-request', () => manager.requestUndo(body.sessionToken)));
   }
   if (req.method === 'POST' && pathname === '/api/undo-response') {
     const body = await jsonBody(req);
+    touchPlayerRequest(body, req);
     return sendJson(res, 200, mutate('undo-response', () => manager.respondUndo(body.sessionToken, Boolean(body.allow))));
   }
   if (req.method === 'POST' && pathname === '/api/defeat-regret-request') {
     const body = await jsonBody(req);
+    touchPlayerRequest(body, req);
     return sendJson(res, 200, mutate('defeat-regret-request', () => manager.requestDefeatRegret(body.sessionToken)));
   }
   if (req.method === 'POST' && pathname === '/api/defeat-regret-response') {
     const body = await jsonBody(req);
+    touchPlayerRequest(body, req);
     return sendJson(res, 200, mutate('defeat-regret-response', () => manager.respondDefeatRegret(body.sessionToken, Boolean(body.allow))));
   }
   throw new ApiError(404, 'NOT_FOUND', '接口不存在');
@@ -372,18 +625,35 @@ async function handleApi(req, res, url) {
 
 restoreAutosave();
 
+if (ONLINE_MODE) {
+  setInterval(() => {
+    const deleted = manager.cleanupInactive(Date.now(), ROOM_IDLE_TTL_MS);
+    if (deleted.length) console.log(`已自动清理${deleted.length}个空闲超过15分钟的在线房间`);
+    loginLimiter.cleanup();
+  }, 60_000).unref();
+}
+
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url || '/', 'http://localhost');
+    const corsAllowed = applyCors(req, res);
     if (req.method === 'OPTIONS') {
-      res.writeHead(204, {
-        ...commonHeaders(),
-        'Access-Control-Max-Age': '600'
-      });
+      if (!corsAllowed) throw new ApiError(403, 'ORIGIN_NOT_ALLOWED', '该网页来源不允许连接此服务器');
+      res.writeHead(204, commonHeaders());
       return res.end();
     }
+    if (!corsAllowed && url.pathname.startsWith('/api/')) throw new ApiError(403, 'ORIGIN_NOT_ALLOWED', '该网页来源不允许连接此服务器');
     if (url.pathname === '/admin') {
-      requireLocalAdmin(req);
+      if (ONLINE_MODE && !String(process.env.ADMIN_PASSWORD || '')) {
+        const html = adminNotConfiguredHtml();
+        res.writeHead(503, {
+          ...commonHeaders(),
+          'Content-Type': 'text/html; charset=utf-8',
+          'Content-Length': Buffer.byteLength(html)
+        });
+        return res.end(html);
+      }
+      requireAdmin(req, res);
       const html = adminHtml();
       res.writeHead(200, {
         ...commonHeaders(),
@@ -400,8 +670,8 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.requestTimeout = 10_000;
-server.headersTimeout = 12_000;
+server.requestTimeout = 40_000;
+server.headersTimeout = 45_000;
 server.keepAliveTimeout = 5_000;
 server.maxRequestsPerSocket = 2_000;
 server.on('clientError', (error, socket) => {
@@ -435,18 +705,19 @@ function listenOnce(port) {
 
 function announceServer() {
   console.log('='.repeat(68));
-  console.log('双飞 v0.42.1 多房间局域网服务器已启动');
+  console.log(`双飞 v0.42.2 ${ONLINE_MODE ? '云端联机' : '多房间局域网'}服务器已启动`);
   console.log(`${EXPLICIT_PORT === null ? '本次随机端口' : '监听端口（已指定）'}：${activePort}`);
-  console.log(`管理页面：http://127.0.0.1:${activePort}/admin`);
-  console.log(`本机游戏：http://127.0.0.1:${activePort}/game.html`);
-  console.log('也可直接双击 public/game.html，再输入服务器IP、端口和登录码。');
+  console.log(`管理页面：${ONLINE_MODE ? `${PUBLIC_BASE_URL || '(当前Render域名)'}/admin` : `http://127.0.0.1:${activePort}/admin`}`);
+  console.log(`游戏页面：${ONLINE_MODE ? `${PUBLIC_BASE_URL || '(当前Render域名)'}/game.html` : `http://127.0.0.1:${activePort}/game.html`}`);
+  if (ONLINE_MODE) console.log(`开房页面：${PUBLIC_BASE_URL || '(当前Render域名)'}/`);
+  console.log('也可直接打开 public/game.html，再输入服务器地址、可选端口和登录码。');
   for (const [name, entries] of Object.entries(os.networkInterfaces())) {
     for (const entry of entries || []) {
       if (entry.family === 'IPv4' && !entry.internal) console.log(`局域网游戏：http://${entry.address}:${activePort}/game.html  (${name})`);
     }
   }
   console.log(`当前房间数：${manager.rooms.size}`);
-  console.log(`自动存档：${AUTOSAVE_FILE}`);
+  console.log(ONLINE_MODE ? '数据模式：仅内存，重启后账号和房间全部清空' : `自动存档：${AUTOSAVE_FILE}`);
   console.log('='.repeat(68));
 }
 

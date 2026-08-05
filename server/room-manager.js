@@ -2,14 +2,17 @@
 
 const { LanRoom } = require('./room.js');
 const { ApiError, assert } = require('./protocol.js');
+const { normalizeLoginCode } = require('./auth.js');
 
 const MULTI_SAVE_FORMAT = 'double-flight-lan-multiroom-autosave';
 const MULTI_SAVE_VERSION = 1;
 
 class RoomManager {
-  constructor() {
+  constructor(options = {}) {
     this.rooms = new Map();
     this.nextRoomId = 1;
+    this.onlineMode = Boolean(options.onlineMode);
+    this.codeMode = this.onlineMode ? 'online' : 'local';
   }
 
   roomIds() {
@@ -36,7 +39,14 @@ class RoomManager {
 
   createRoom(options = {}) {
     const roomId = this.nextRoomId++;
-    const room = new LanRoom(roomId);
+    const room = new LanRoom(roomId, {
+      codeMode: options.codeMode || this.codeMode,
+      ownerAccountId: options.ownerAccountId || null,
+      createdByIpKey: options.createdByIpKey || null,
+      createdByIpAddress: options.createdByIpAddress || '',
+      createdByIpMasked: options.createdByIpMasked || '',
+      createdAt: options.createdAt
+    });
     this.rooms.set(roomId, room);
     if (options.open !== false) room.open(this.allCodes(roomId));
     return room;
@@ -67,13 +77,53 @@ class RoomManager {
 
   deleteRoom(roomId) {
     const room = this.getRoom(roomId);
+    const metadata = {
+      roomId: room.roomId,
+      ownerAccountId: room.ownerAccountId,
+      createdByIpKey: room.createdByIpKey
+    };
     room.close();
     this.rooms.delete(room.roomId);
-    return { ok: true, roomId: room.roomId };
+    return { ok: true, ...metadata };
+  }
+
+  roomsForAccount(accountId) {
+    return this.roomIds().map(id => this.rooms.get(id)).filter(room => room.ownerAccountId === accountId);
+  }
+
+  countRoomsForAccount(accountId) {
+    return this.roomsForAccount(accountId).length;
+  }
+
+  countRoomsForCreatorIp(ipKey) {
+    const key = String(ipKey || '');
+    return [...this.rooms.values()].filter(room => room.createdByIpKey === key).length;
+  }
+
+  transferAccountRooms(accountId, identity = {}) {
+    const transferred = [];
+    for (const room of this.roomsForAccount(accountId)) {
+      room.transferAccountOwner(identity);
+      transferred.push(room.roomId);
+    }
+    return transferred;
+  }
+
+  deleteRoomsForAccount(accountId) {
+    return this.roomsForAccount(accountId).map(room => this.deleteRoom(room.roomId));
+  }
+
+  cleanupInactive(now = Date.now(), ttlMs = 15 * 60 * 1000) {
+    const deleted = [];
+    for (const room of [...this.rooms.values()]) {
+      if (!room.ownerAccountId || !room.isInactive(now, ttlMs)) continue;
+      deleted.push(this.deleteRoom(room.roomId));
+    }
+    return deleted;
   }
 
   findRoomByCode(code) {
-    const normalized = String(code || '').trim();
+    const normalized = normalizeLoginCode(code);
     for (const room of this.rooms.values()) {
       if (room.status !== 'closed' && room.auth.matchesCode(normalized)) return room;
     }
@@ -90,14 +140,18 @@ class RoomManager {
 
   requireRoomByToken(token) {
     const room = this.findRoomByToken(token);
-    if (!room) throw new ApiError(401, 'SESSION_INVALID', '会话已失效，请重新输入登录码');
+    if (!room) throw new ApiError(401, 'SESSION_INVALID', '服务器已重启、房间已过期或会话已失效，请重新加入房间');
     return room;
   }
 
-  login(code) {
+  login(code, identity = null) {
     const room = this.findRoomByCode(code);
     if (!room) throw new ApiError(401, 'INVALID_LOGIN_CODE', '登录码无效或已经作废');
-    return room.login(code);
+    return room.login(code, identity);
+  }
+
+  touchSession(token, identity = null) {
+    return this.requireRoomByToken(token).touchSession(token, identity);
   }
 
   logout(token) {
@@ -106,6 +160,10 @@ class RoomManager {
 
   poll(token, knownVersion, knownChatVersion) {
     return this.requireRoomByToken(token).poll(token, knownVersion, knownChatVersion);
+  }
+
+  waitForUpdate(token, knownVersion, knownChatVersion, timeoutMs, request, response) {
+    return this.requireRoomByToken(token).waitForUpdate(token, knownVersion, knownChatVersion, timeoutMs, request, response);
   }
 
   sendChat(token, content) {
@@ -168,9 +226,22 @@ class RoomManager {
     return this.getRoom(roomId).exportGame();
   }
 
+  activeRoomCount() {
+    return [...this.rooms.values()].filter(room => room.status !== 'closed').length;
+  }
+
+  onlinePlayers(now = Date.now(), activeWindowMs = 60_000) {
+    return [...this.rooms.values()].flatMap(room => room.onlinePlayers(now, activeWindowMs));
+  }
+
+  onlinePlayerCount(now = Date.now(), activeWindowMs = 60_000) {
+    return this.onlinePlayers(now, activeWindowMs).length;
+  }
+
   adminState() {
     return {
       ok: true,
+      onlineMode: this.onlineMode,
       nextRoomId: this.nextRoomId,
       roomCount: this.rooms.size,
       rooms: this.roomIds().map(id => this.rooms.get(id).adminState())
@@ -181,7 +252,7 @@ class RoomManager {
     return {
       format: MULTI_SAVE_FORMAT,
       formatVersion: MULTI_SAVE_VERSION,
-      appVersion: '0.42.1',
+      appVersion: '0.42.2',
       savedAt: new Date().toISOString(),
       nextRoomId: this.nextRoomId,
       rooms: this.roomIds().map(roomId => ({
@@ -192,6 +263,7 @@ class RoomManager {
   }
 
   importAutosave(raw) {
+    assert(!this.onlineMode, 409, 'ONLINE_MEMORY_ONLY', '在线模式不支持自动存档恢复');
     assert(raw && typeof raw === 'object', 422, 'INVALID_SAVE', '自动存档格式无效');
     const source = raw.gameFile || raw;
     this.rooms.clear();
@@ -203,14 +275,14 @@ class RoomManager {
         .filter(entry => Number.isInteger(entry.roomId) && entry.roomId > 0 && entry.gameFile)
         .sort((a, b) => a.roomId - b.roomId);
       for (const entry of entries) {
-        const room = new LanRoom(entry.roomId);
+        const room = new LanRoom(entry.roomId, { codeMode: 'local' });
         this.rooms.set(entry.roomId, room);
         room.importGame(entry.gameFile, { refreshAuth: true, excludeCodes: this.allCodes(entry.roomId) });
       }
       const highest = this.roomIds().at(-1) || 0;
       this.nextRoomId = Math.max(highest + 1, Number(source.nextRoomId) || 1);
     } else {
-      const room = new LanRoom(1);
+      const room = new LanRoom(1, { codeMode: 'local' });
       this.rooms.set(1, room);
       room.importGame(source, { refreshAuth: true, excludeCodes: new Set() });
       this.nextRoomId = 2;

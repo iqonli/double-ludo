@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>双飞联机服务器-联机开房</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDQ4IiBoZWlnaHQ9IjIwNDgiIHZpZXdCb3g9IjAgMCAyMDQ4IDIwNDgiIHJvbGU9ImltZyIgYXJpYS1sYWJlbD0i5Y+M6aOe6JOd6Imy5qOL5a2Q5Zu+5qCHIj48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMDI0IDEwMjQpIHNjYWxlKDIxLjMzMzMzMzMzMzMzMzMikgdHJhbnNsYXRlKC0yNTYgLTI1NikiPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDI1NiAyNTYpIj48Y2lyY2xlIGN4PSIwIiBjeT0iMCIgcj0iNDUuMjUiIGZpbGw9IiMzMTg1ZDgiIHN0cm9rZT0iIzI4NjVhMCIgc3Ryb2tlLXdpZHRoPSI1LjUiLz48bGluZSB4MT0iMCIgeTE9Ii0yMC43MzYiIHgyPSIxNC42NjI1NjIxNDY4NDI0OSIgeTI9Ii02LjA3MzQzMzc4NTMxNTc1MiIgc3Ryb2tlPSJyZ2IoNzAsIDczLCA3OSkiIHN0cm9rZS13aWR0aD0iNi42MjQwMDAwMDAwMDAwMDA2IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48bGluZSB4MT0iMCIgeTE9Ii0yMC43MzYiIHgyPSItMTQuNjYyNTY2MjE0Njg0MjQ5IiB5Mj0iLTYuMDczNDMzNzg1MzE1NzUyIiBzdHJva2U9InJnYig3MCwgNzMsIDc5KSIgc3Ryb2tlLXdpZHRoPSI2LjYyNDAwMDAwMDAwMDAwMDYiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjxsaW5lIHgxPSIwIiB5MT0iLTIwLjczNiIgeDI9IjAiIHkyPSIyMC43MzYiIHN0cm9rZT0icmdiKDcwLCA3MywgNzkpIiBzdHJva2Utd2lkdGg9IjYuNjI0MDAwMDAwMDAwMDA2IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48L2c+PC9nPjwvc3ZnPg==">
+  <link rel="stylesheet" href="host.css">
+</head>
+<body>
+  <main class="wrap">
+    <header class="hero">
+      <div class="hero-brand">
+        <span class="host-game-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="2048" height="2048" viewBox="0 0 2048 2048" role="img" aria-label="双飞游戏图标"><g transform="translate(1024 1024) scale(9.142857142857142) translate(-256 -256)"><g transform="translate(192 192)"><circle cx="0" cy="0" r="45.25" fill="#e5bd34" stroke="#aa8d2a" stroke-width="5.5"/></g><g transform="translate(320 192)"><circle cx="0" cy="0" r="45.25" fill="#3185d8" stroke="#2865a0" stroke-width="5.5"/><line x1="0" y1="-20.736" x2="14.662566214684249" y2="-6.073433785315752" stroke="rgb(70, 73, 79)" stroke-width="6.6240000000000006" stroke-linecap="round"/><line x1="0" y1="-20.736" x2="-14.662566214684249" y2="-6.073433785315752" stroke="rgb(70, 73, 79)" stroke-width="6.6240000000000006" stroke-linecap="round"/><line x1="0" y1="-20.736" x2="0" y2="20.736" stroke="rgb(70, 73, 79)" stroke-width="6.6240000000000006" stroke-linecap="round"/></g><g transform="translate(192 320)"><circle cx="0" cy="0" r="45.25" fill="#d94b50" stroke="#a13b3e" stroke-width="5.5"/><circle cx="0" cy="0" r="37.250032" fill="none" stroke="#ffffff" stroke-opacity="0.6" stroke-width="5.472"/></g><g transform="translate(320 320)"><rect x="-42.528" y="-42.528" width="85.056" height="85.056" rx="4.476631578947368" ry="4.476631578947368" fill="#66bc8a" stroke="#35a266" stroke-width="5.5"/><circle cx="0" cy="0" r="15.041482105263157" fill="rgb(238, 240, 243)" stroke="#35a266" stroke-width="3.357473684210526"/></g></g></svg></span>
+        <div>
+          <p class="eyebrow">DOUBLE LUDO ONLINE</p>
+          <h1>双飞联机服务器-联机开房</h1>
+        </div>
+      </div>
+      <div class="hero-actions">
+        <div class="server-stats" aria-label="服务器实时状态">
+          <span>活跃房间 <strong id="activeRoomCount">—</strong></span>
+          <span>在线玩家 <strong id="onlinePlayerCount">—</strong></span>
+        </div>
+        <a class="button primary game-link" href="/game.html">直接进入游戏页面</a>
+      </div>
+    </header>
+
+    <section id="loginCard" class="card login-card">
+      <label for="accountPassword">密码</label>
+      <div class="login-row">
+        <input id="accountPassword" type="text" minlength="8" maxlength="128" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="至少8个字符">
+        <button id="loginButton" class="primary">GO</button>
+      </div>
+      <p class="login-notice">服务器空闲15分钟后会自动休眠，账号、房间、聊天和对局将在服务器休眠后删除，无法恢复。</p>
+    </section>
+
+    <section id="dashboard" class="hidden">
+      <section class="card account-card">
+        <div>
+          <span class="muted">当前账号</span>
+          <strong id="accountId">—</strong>
+          <span id="ownerIp" class="muted"></span>
+        </div>
+        <div class="actions">
+          <button id="createRoomButton" class="primary">创建房间</button>
+          <button id="logoutButton">退出账号</button>
+          <button id="deleteAccountButton" class="danger">删除账号</button>
+        </div>
+      </section>
+
+      <div id="quota" class="quota"></div>
+      <section id="rooms" class="rooms"></section>
+
+    </section>
+
+
+    <section id="serverAboutCard" class="card about-card">
+      <h2>关于</h2>
+      <p>by IQ Online Studio, <a href="https://github.com/iqonli/double-ludo" target="_blank" rel="noopener noreferrer">github.com/iqonli/double-ludo</a></p>
+      <p>本项目使用MIT许可证。Copyright © 2026 IQ Online Studio.</p>
+      <p><strong>使用本服务器，即代表你已阅读并同意下列事项：</strong></p>
+      <ol>
+          <li>本服务器仅供双飞游戏联机对战使用。</li>
+          <li>本服务器部署于免费Render服务，服务器空闲15分钟后会自动休眠。休眠后，首次启动需要约1分钟时间。</li>
+          <li>本服务器估计最大承载量为200名在线玩家，看到在线玩家数量将要达到最大承载量时请勿登录。</li>
+          <li>服务器管理员拥有检查活动房间、聊天、房间日志和连接来源信息的权限。请勿在联机聊天中发送身份证件、密码、支付信息或其他隐私内容。</li>
+          <li>禁止利用本服务器传播违法内容或肆意消耗服务器资源。</li>
+          <li>本服务器不提供长期存档、反作弊保证、可用性承诺或对局恢复保证。</li>
+      </ol>
+      <p><strong>本服务器的一些特性：</strong></p>
+      <ol>
+          <li>账号、房间、聊天和对局只在服务器中保存，服务器休眠后上述内容会被删除，无法恢复。</li>
+          <li>密码是识别开房账号的唯一凭证，且安全性较低，请使用至少8个字符的密码（随便乱输都可以），千万不要使用你其他网站的密码。</li>
+          <li>当他人知道你的密码之后，可以接管你的账号。</li>
+          <li>每个账号最多同时运行5个房间。</li>
+          <li>新IP接管账号后，原IP的账号管理页面会失效；但已进入对局的玩家不会因此而退出。</li>
+          <li>在线登录码为5位数字+1位字母，例如12345A，不要把登录码或邀请链接发给无关人员。</li>
+          <li>玩家A和玩家B都断开连接，房间空闲超过15分钟后，将会自动删除。但只要有一名玩家保持连接，即可维持房间在线状态。</li>
+      </ol>
+    </section>
+
+    <input id="importFile" type="file" accept="application/json,.json" class="hidden">
+    <div id="notice" class="notice" role="status" aria-live="polite"></div>
+    <div id="copyPop" class="copy-pop hidden" role="status">复制成功</div>
+  </main>
+  <script src="request-retry.js"></script>
+  <script src="host.js"></script>
+</body>
+</html>

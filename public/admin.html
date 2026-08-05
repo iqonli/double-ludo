@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>双飞 v__APP_VERSION__ 服务端管理</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDQ4IiBoZWlnaHQ9IjIwNDgiIHZpZXdCb3g9IjAgMCAyMDQ4IDIwNDgiIHJvbGU9ImltZyIgYXJpYS1sYWJlbD0i5Y+M6aOe6JOd6Imy5qOL5a2Q5Zu+5qCHIj48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMDI0IDEwMjQpIHNjYWxlKDIxLjMzMzMzMzMzMzMzMzMikgdHJhbnNsYXRlKC0yNTYgLTI1NikiPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDI1NiAyNTYpIj48Y2lyY2xlIGN4PSIwIiBjeT0iMCIgcj0iNDUuMjUiIGZpbGw9IiMzMTg1ZDgiIHN0cm9rZT0iIzI4NjVhMCIgc3Ryb2tlLXdpZHRoPSI1LjUiLz48bGluZSB4MT0iMCIgeTE9Ii0yMC43MzYiIHgyPSIxNC42NjI1NjIxNDY4NDI0OSIgeTI9Ii02LjA3MzQzMzc4NTMxNTc1MiIgc3Ryb2tlPSJyZ2IoNzAsIDczLCA3OSkiIHN0cm9rZS13aWR0aD0iNi42MjQwMDAwMDAwMDAwMDA2IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48bGluZSB4MT0iMCIgeTE9Ii0yMC43MzYiIHgyPSItMTQuNjYyNTY2MjE0Njg0MjQ5IiB5Mj0iLTYuMDczNDMzNzg1MzE1NzUyIiBzdHJva2U9InJnYig3MCwgNzMsIDc5KSIgc3Ryb2tlLXdpZHRoPSI2LjYyNDAwMDAwMDAwMDAwMDYiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjxsaW5lIHgxPSIwIiB5MT0iLTIwLjczNiIgeDI9IjAiIHkyPSIyMC43MzYiIHN0cm9rZT0icmdiKDcwLCA3MywgNzkpIiBzdHJva2Utd2lkdGg9IjYuNjI0MDAwMDAwMDAwMDA2IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48L2c+PC9nPjwvc3ZnPg==">
+  <link rel="stylesheet" href="/admin.css">
+</head>
+<body>
+  <main class="wrap">
+    <header class="topbar">
+      <div>
+        <h1 id="adminTitle">双飞 v__APP_VERSION__ 服务端管理</h1>
+        <div id="adminSubtitle" class="muted">登录码自动绑定房间，客户端无需输入房间号。</div>
+      </div>
+      <div class="top-actions">
+        <button id="createRoom" class="primary">新建房间</button>
+        <button id="aboutButton">关于</button>
+        <a id="gameLink" class="button game-link" target="_blank" rel="noopener">游戏端</a>
+      </div>
+    </header>
+
+    <div class="dashboard">
+      <aside class="side-column">
+        <section id="chatCard" class="card chat-card">
+          <div class="chat-heading"><h2 id="chatTitle">局域网聊天</h2><span id="chatCount">0</span></div>
+          <select id="chatRoomSelect" class="chat-room-select" aria-label="选择聊天房间"></select>
+          <div class="chat-log-wrap"><div id="chatLog" class="chat-log" role="log" aria-live="polite"></div><button id="chatUnread" class="chat-unread hidden">未读 0</button></div>
+          <textarea id="chatInput" maxlength="2000" placeholder=""></textarea>
+          <div class="chat-actions"><button id="chatHint" class="chat-mode-button">当前：Enter发送</button><button id="sendChat" class="primary">发送</button></div>
+          <div id="notice" class="notice" role="status" aria-live="polite"></div>
+          <div id="chatResizeHandle" class="chat-resize-handle" aria-label="拖动调整聊天高度"></div>
+        </section>
+
+        <section id="accountsCard" class="card hidden">
+          <div class="section-head"><h2>账号管理</h2><span id="accountCount" class="muted">0</span></div>
+          <div id="accounts" class="accounts-list"></div>
+        </section>
+
+        <section id="onlinePlayersCard" class="card hidden">
+          <div class="section-head"><h2>在线玩家IP列表</h2><span id="onlinePlayerAdminCount" class="muted">0</span></div>
+          <div id="onlinePlayers" class="online-players-list"></div>
+        </section>
+      </aside>
+
+      <section id="roomsGrid" class="rooms-grid"></section>
+      <section class="card console-card"><h2>服务端控制台</h2><pre id="consoleLog" class="console-log"></pre></section>
+    </div>
+
+    <input id="importFile" type="file" accept="application/json,.json" class="hidden">
+    <div id="copyPop" class="copy-pop hidden" role="status">复制成功</div>
+  </main>
+
+  <div id="aboutModal" class="admin-modal hidden">
+    <section class="admin-modal-card">
+      <h2>关于</h2>
+      <div id="aboutContent"></div>
+      <div class="admin-modal-actions"><button id="closeAboutButton">关闭</button></div>
+    </section>
+  </div>
+
+  <script src="/request-retry.js"></script>
+  <script src="/admin.js"></script>
+</body>
+</html>

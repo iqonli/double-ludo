@@ -12,9 +12,21 @@ const MAX_CHAT_LENGTH = 2000;
 const MAX_ROOM_LOG = 80;
 
 class LanRoom {
-  constructor(roomId = 1) {
+  constructor(roomId = 1, options = {}) {
     this.roomId = Number(roomId) || 1;
-    this.auth = new AuthManager();
+    this.codeMode = options.codeMode === 'online' ? 'online' : 'local';
+    this.ownerAccountId = options.ownerAccountId || null;
+    this.createdByIpKey = options.createdByIpKey || null;
+    this.createdByIpAddress = options.createdByIpAddress || '';
+    this.createdByIpMasked = options.createdByIpMasked || '';
+    this.createdAt = Number(options.createdAt) || Date.now();
+    this.playerLastSeenAt = { A: null, B: null };
+    this.playerConnection = {
+      A: { ipAddress: '', ipMasked: '', ipKey: '' },
+      B: { ipAddress: '', ipMasked: '', ipKey: '' }
+    };
+    this.pollWaiters = new Map();
+    this.auth = new AuthManager({ codeMode: this.codeMode });
     this.status = 'closed';
     this.version = 0;
     this.serverEngine = null;
@@ -43,6 +55,94 @@ class LanRoom {
     return line;
   }
 
+  touchPlayer(role, now = Date.now(), identity = null) {
+    if (role !== 'A' && role !== 'B') return;
+    this.playerLastSeenAt[role] = Number(now) || Date.now();
+    if (identity && typeof identity === 'object') {
+      this.playerConnection[role] = {
+        ipAddress: String(identity.address || ''),
+        ipMasked: String(identity.masked || ''),
+        ipKey: String(identity.key || '')
+      };
+    }
+  }
+
+  validate(token, options = {}) {
+    const role = this.auth.validate(token);
+    if (options.touch !== false) this.touchPlayer(role, Date.now(), options.identity || null);
+    return role;
+  }
+
+  touchSession(token, identity = null) {
+    const role = this.auth.validate(token);
+    this.touchPlayer(role, Date.now(), identity);
+    return role;
+  }
+
+  connected(now = Date.now(), activeWindowMs = 60_000) {
+    const authenticated = this.auth.connected();
+    return {
+      A: Boolean(authenticated.A && this.playerLastSeenAt.A && now - this.playerLastSeenAt.A <= activeWindowMs),
+      B: Boolean(authenticated.B && this.playerLastSeenAt.B && now - this.playerLastSeenAt.B <= activeWindowMs)
+    };
+  }
+
+  onlinePlayers(now = Date.now(), activeWindowMs = 60_000) {
+    const connected = this.connected(now, activeWindowMs);
+    return ['A', 'B'].filter(role => connected[role]).map(role => ({
+      roomId: this.roomId,
+      role,
+      ownerAccountId: this.ownerAccountId,
+      ipAddress: this.playerConnection[role].ipAddress || '',
+      ipMasked: this.playerConnection[role].ipMasked || '',
+      lastSeenAt: new Date(this.playerLastSeenAt[role]).toISOString()
+    }));
+  }
+
+  lastPlayerActivityAt() {
+    return Math.max(this.createdAt, Number(this.playerLastSeenAt.A) || 0, Number(this.playerLastSeenAt.B) || 0);
+  }
+
+  isInactive(now = Date.now(), ttlMs = 15 * 60 * 1000) {
+    return now - this.lastPlayerActivityAt() > ttlMs;
+  }
+
+  notifyPollWaiters(reason = 'update') {
+    for (const done of this.pollWaiters.values()) done(reason);
+    this.pollWaiters.clear();
+  }
+
+  waitForUpdate(token, knownVersion, knownChatVersion, timeoutMs = 25_000, request = null, response = null) {
+    const role = this.validate(token);
+    if (Number(knownVersion) !== this.version || Number(knownChatVersion) !== this.chatVersion) {
+      return Promise.resolve('changed');
+    }
+    const normalizedToken = String(token || '');
+    const existing = this.pollWaiters.get(normalizedToken);
+    if (existing) existing('replaced');
+
+    return new Promise(resolve => {
+      let finished = false;
+      let timer = null;
+      const onClose = () => done('closed');
+      const done = reason => {
+        if (finished) return;
+        finished = true;
+        if (timer) clearTimeout(timer);
+        if (request) request.off('aborted', onClose);
+        if (response) response.off('close', onClose);
+        if (this.pollWaiters.get(normalizedToken) === done) this.pollWaiters.delete(normalizedToken);
+        resolve(reason || 'update');
+      };
+      timer = setTimeout(() => done('timeout'), Math.max(1000, Number(timeoutMs) || 25_000));
+      this.pollWaiters.set(normalizedToken, done);
+      if (request) request.once('aborted', onClose);
+      if (response) response.once('close', onClose);
+      this.touchPlayer(role);
+      if (Number(knownVersion) !== this.version || Number(knownChatVersion) !== this.chatVersion) done('changed');
+    });
+  }
+
   bump(events = [], transitionMeta = null) {
     this.version += 1;
     this.lastEvents = Array.isArray(events) ? events.slice(-100) : [];
@@ -59,6 +159,7 @@ class LanRoom {
       this.transitions.push(transition);
       if (this.transitions.length > 120) this.transitions.splice(0, this.transitions.length - 120);
     }
+    this.notifyPollWaiters('version');
   }
 
   clearTransitions() {
@@ -92,6 +193,7 @@ class LanRoom {
 
   bumpChat() {
     this.chatVersion += 1;
+    this.notifyPollWaiters('chat');
   }
 
   static chatTimestamp(date = new Date()) {
@@ -185,6 +287,16 @@ class LanRoom {
     return { ok: true, ...this.payload(role) };
   }
 
+
+  transferAccountOwner(identity = {}) {
+    this.createdByIpKey = String(identity.key || '');
+    this.createdByIpAddress = String(identity.address || '');
+    this.createdByIpMasked = String(identity.masked || '');
+    this.logActivity(`账号管理归属已转移到IP ${this.createdByIpAddress || '未知'}`);
+    this.bump([]);
+    return this.adminState();
+  }
+
   open(excludeCodes = new Set()) {
     this.status = 'lobby';
     this.serverEngine = null;
@@ -228,6 +340,7 @@ class LanRoom {
   }
 
   close() {
+    this.notifyPollWaiters('room-closed');
     this.status = 'closed';
     this.serverEngine = null;
     this.processedActions.clear();
@@ -244,9 +357,10 @@ class LanRoom {
     return this.adminState();
   }
 
-  login(code) {
+  login(code, identity = null) {
     assert(this.status !== 'closed', 409, 'ROOM_CLOSED', '服务端尚未开房');
     const session = this.auth.login(code);
+    this.touchPlayer(session.role, Date.now(), identity);
     this.logActivity(`玩家${session.role}已登录`);
     this.bump([]);
     return {
@@ -260,7 +374,8 @@ class LanRoom {
   }
 
   logout(token) {
-    const role = this.auth.logout(token);
+    const role = this.validate(token);
+    this.auth.logout(token);
     if (role === 'B') this.lobbyReady.B = false;
     this.logActivity(`玩家${role}已退出`);
     this.bump([]);
@@ -297,10 +412,6 @@ class LanRoom {
     this.logActivity(this.lobbyReady.B ? '玩家B已准备' : '玩家B取消准备');
     this.bump([]);
     return { ok: true, ...this.payload(role) };
-  }
-
-  validate(token) {
-    return this.auth.validate(token);
   }
 
   startGame(token, config) {
@@ -539,7 +650,7 @@ class LanRoom {
     return {
       format: SAVE_FORMAT,
       formatVersion: SAVE_FORMAT_VERSION,
-      appVersion: '0.42.1',
+      appVersion: '0.42.2',
       roomId: this.roomId,
       exportedAt: new Date().toISOString(),
       roomStatus: this.status,
@@ -620,7 +731,7 @@ class LanRoom {
       openingRollPending: engine ? engine.openingRollPending : true,
       state: engine ? engine.snapshot() : null,
       legalActions: engine ? engine.legalActions() : [],
-      connected: this.auth.connected(),
+      connected: this.connected(),
       lobbyConfig: this.lobbyConfig ? JSON.parse(JSON.stringify(this.lobbyConfig)) : null,
       lobbyReady: { ...this.lobbyReady },
       lobbySpeedRolls: JSON.parse(JSON.stringify(this.lobbySpeedRolls)),
@@ -640,8 +751,28 @@ class LanRoom {
       ok: true,
       roomId: this.roomId,
       roomStatus: this.status,
+      codeMode: this.codeMode,
+      ownerAccountId: this.ownerAccountId,
+      createdByIpAddress: this.createdByIpAddress,
+      createdByIpMasked: this.createdByIpMasked,
+      createdAt: new Date(this.createdAt).toISOString(),
+      playerLastSeenAt: {
+        A: this.playerLastSeenAt.A ? new Date(this.playerLastSeenAt.A).toISOString() : null,
+        B: this.playerLastSeenAt.B ? new Date(this.playerLastSeenAt.B).toISOString() : null
+      },
+      playerConnections: {
+        A: {
+          ipAddress: this.playerConnection.A.ipAddress || '',
+          ipMasked: this.playerConnection.A.ipMasked || ''
+        },
+        B: {
+          ipAddress: this.playerConnection.B.ipAddress || '',
+          ipMasked: this.playerConnection.B.ipMasked || ''
+        }
+      },
+      lastPlayerActivityAt: new Date(this.lastPlayerActivityAt()).toISOString(),
       version: this.version,
-      connected: this.auth.connected(),
+      connected: this.connected(),
       codes: this.auth.publicCodes(),
       lobbyConfig: this.lobbyConfig ? JSON.parse(JSON.stringify(this.lobbyConfig)) : null,
       lobbyReady: { ...this.lobbyReady },

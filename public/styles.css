@@ -1131,3 +1131,69 @@ body.resizing-chat-panel, body.resizing-chat-panel * { cursor: ns-resize !import
   .lan-chat-panel.chat-shake::before { animation-duration: .01ms; }
   .lan-spirit-orb { display: none; }
 }
+
+
+/* v0.42.2 comprehensive narrow-container/mobile adaptation */
+@media (max-width: 760px) {
+  html, body { min-width: 0; max-width: 100%; overflow-x: hidden; }
+  body { font-size: 14px; }
+  button, input, select, textarea { touch-action: manipulation; }
+  input, select, textarea { font-size: 16px !important; }
+  .app-header { height: auto; min-height: 54px; padding: 8px; flex-wrap: wrap; align-items: center; }
+  .brand-mini { min-width: 0; flex: 1 1 150px; }
+  .brand-title-row, .brand-mini span, .app-header strong { overflow-wrap: anywhere; }
+  .header-actions { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+  .header-actions button { min-height: 42px; }
+  .workspace { width: 100%; min-width: 0; }
+  .left-panel, .right-panel, .log-panel, .color-test-panel, .board-panel { min-width: 0; width: 100%; }
+  .board-panel { min-height: auto; padding: 8px 0 14px; }
+  .board-toolbar { width: calc(100% - 16px); margin-inline: auto; }
+  .board { width: min(calc(100vw - 16px), 700px); max-width: 100%; }
+  .panel-column, .log-panel, .color-test-panel { padding-left: 10px; padding-right: 10px; }
+  .setup-card { width: min(760px, calc(100vw - 12px)); max-height: calc(100dvh - 12px); border-radius: 12px; }
+  .overlay { padding: 6px; overflow-x: hidden; }
+  .setup-heading { align-items: flex-start; gap: 10px; }
+  .setup-title-row { min-width: 0; }
+  .setup-title-copy h1 { overflow-wrap: anywhere; }
+  .setup-meta-actions { min-width: 0; }
+  .setup-header-buttons { flex-wrap: wrap; justify-content: flex-end; }
+  .setup-section, .setup-heading, .setup-footer { padding-left: 12px; padding-right: 12px; }
+  .segmented, .setup-ai-grid, .order-grid, .launch-settings, .timing-controls, .color-controls { min-width: 0; }
+  .lan-connect-row, .lan-smart-row { grid-template-columns: 1fr !important; }
+  .lan-connect-row > *, .lan-smart-row > * { grid-column: 1 !important; min-width: 0; width: 100%; }
+  .lan-connect-row button, .lan-smart-row button { min-height: 44px; width: 100%; }
+  .lan-chat-panel { width: 100%; max-width: 100%; }
+  .communication-modal-card, .defeat-card, .victory-card, .about-card { width: calc(100vw - 16px); max-width: 100%; max-height: calc(100dvh - 16px); }
+  .defeat-modal, .victory-modal, .about-modal { padding: 8px; }
+  .modal-actions, .defeat-actions, .victory-actions { flex-wrap: wrap; }
+  .modal-actions button, .defeat-actions button, .victory-actions button { min-height: 44px; flex: 1 1 130px; }
+  .player-card, .dice-section, .interaction-tools, .color-test-heading { min-width: 0; }
+}
+@media (max-width: 520px) {
+  .setup-heading { flex-direction: column; }
+  .setup-meta-actions { width: 100%; align-items: stretch; }
+  .setup-header-buttons { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+  .setup-header-buttons button { width: 100%; min-height: 42px; }
+  .setup-game-icon, .setup-game-icon svg { width: 56px; height: 56px; flex-basis: 56px; }
+  .setup-title-copy h1 { font-size: 24px; }
+  .segmented { grid-template-columns: 1fr !important; }
+  .segmented button { min-height: 44px; }
+  .color-picker, .setup-ai-grid, .protection-grid, .order-grid, .timing-controls { grid-template-columns: 1fr !important; }
+  .launch-value-choices { grid-template-columns: repeat(3, 1fr); }
+  .setup-footer { align-items: stretch; }
+  .setup-footer button { width: 100%; min-height: 46px; }
+  .panel-heading, .interaction-heading, .subheading, .color-test-heading { align-items: stretch; flex-direction: column; }
+  .interaction-tools { width: 100%; display: grid; grid-template-columns: 1fr 1fr; }
+  .interaction-tools>* { min-width: 0; }
+  .dice-row { gap: 8px; }
+  .die-button { min-width: 0; }
+  .lan-chat-actions { display: grid; grid-template-columns: 1fr; }
+  .lan-chat-actions button { min-height: 42px; }
+  .board-rotate-controls button { min-width: 44px; min-height: 40px; }
+  .game-log { overflow-wrap: anywhere; }
+}
+@media (max-width: 350px) {
+  .header-actions, .setup-header-buttons, .interaction-tools { grid-template-columns: 1fr; }
+  .header-game-icon, .header-game-icon svg { width: 28px; height: 28px; flex-basis: 28px; }
+  .launch-value-choices { grid-template-columns: repeat(2, 1fr); }
+}

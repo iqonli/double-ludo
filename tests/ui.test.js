@@ -7,6 +7,9 @@ const html = fs.readFileSync(publicFile('game.html'), 'utf8');
 const game = fs.readFileSync(publicFile('game.js'), 'utf8');
 const css = fs.readFileSync(publicFile('styles.css'), 'utf8');
 const network = fs.readFileSync(publicFile('network-client.js'), 'utf8');
+const retrySource = fs.readFileSync(publicFile('request-retry.js'), 'utf8');
+const hostHtml = fs.readFileSync(publicFile('host.html'), 'utf8');
+const hostJs = fs.readFileSync(publicFile('host.js'), 'utf8');
 const engine = require('../shared/engine.js');
 const protocol = fs.readFileSync(path.join(__dirname, '../shared/action-protocol.js'), 'utf8');
 
@@ -132,16 +135,16 @@ assert(game.includes('function compactCjkAsciiSpacing') && game.includes('compac
 assert(game.includes('const isProtectedPiece = engine.isProtected(piece.color)') && game.includes("ring.className = 'protected-ring'"), '保护棋子应使用独立内部圆线元素');
 assert(css.includes('.protected-ring') && css.includes('inset: 8.333333%') && css.includes('rgba(255,255,255,.60)') && !css.includes('border: 2px double var(--piece-color)'), '保护棋子应使用普通棋子外观加内部白色圆线');
 
-assert(html.includes('局域网聊天') && html.includes('当前：Enter发送'), '玩家信息下方应包含多行局域网聊天控件和发送方式按钮');
+assert(html.includes('联机聊天') && html.includes('当前：Enter发送'), '玩家信息下方应包含多行联机聊天控件和发送方式按钮');
 assert(css.includes('body.lan-mode .lan-chat-panel') && css.includes('white-space: pre-wrap'), '聊天仅在局域网模式显示并保留多行格式');
 assert(game.includes('function sendLanChat()') && game.includes('chat-only') || game.includes('Chat-only'), '应实现聊天发送并避免聊天刷新重建棋局');
 assert(!css.includes('backdrop-filter: blur(8px)'), '启动界面背景不应使用模糊效果');
 const toastBlock = (css.match(/\.status-toast\s*\{[\s\S]*?\}/) || [''])[0];
 assert(/z-index:\s*(?:[3-9]\d{3,}|[1-9]\d{4,})/.test(toastBlock), '顶部消息层级应高于启动界面');
-assert(html.includes('min="6666" max="8888"') && !html.includes('value="8765"'), '端口输入应匹配随机端口范围');
-assert(game.includes("el.lanPort.value = location.port || '';"), '本地打开HTML时端口应由用户输入');
+assert(html.includes('min="1" max="65535"') && html.includes('端口（可选）'), '端口输入应兼容局域网自定义端口，并允许Render地址不填端口');
+assert(game.includes('el.lanHost.value = location.origin') && game.includes("el.lanPort.value = '';"), '同源网页应默认使用当前服务器地址且不要求填写Render内部端口');
 
-assert(html.includes('id="lanAutoSearchButton"') && html.includes('id="lanSmartInput"') && html.includes('id="lanSmartApplyButton"'), '局域网连接面板应包含自动搜索IP和智能输入');
+assert(html.includes('id="lanAutoSearchButton"') && html.includes('id="lanSmartInput"') && html.includes('id="lanSmartApplyButton"'), '联机面板应保留局域网自动搜索和智能输入');
 assert(game.includes('function autoSearchLanIp()') && game.includes('function applySmartLanInput()') && game.includes('未找到本地服务器'), '应实现内网服务器搜索和智能字段提取');
 assert(css.includes('height: 54px') && css.includes('calc(100vh - 54px)'), '顶栏应恢复原高度并同步工作区高度');
 assert(game.includes('function animateLanTransition') && game.includes('lanVisualQueue') && game.includes('transitions'), '联机状态应按服务端转场排队播放动画');
@@ -177,10 +180,40 @@ assert(game.includes('申请反悔三6遣返！') && game.includes("el.rejectUnd
 assert(network.includes('requestDefeatRegret()') && network.includes('respondDefeatRegret(allow)'), '网络客户端应支持三6遣返反悔申请和回应');
 assert(game.includes('const initialHeight = Number.isFinite(saved) && saved >= 240 ? saved : 500'), 'game内局域网聊天区域默认高度应为500px');
 
-assert(html.includes('v0.42.1 LAN'), '准备页版本号应为v0.42.1 LAN');
+assert(html.includes('v0.42.2 联机'), '准备页版本号应标记为联机版本');
 assert(!html.includes('标准飞行棋底盘，本地 1v1。'), '准备页不应保留旧副标题');
 assert(html.includes('class="setup-game-icon"') && html.includes('class="header-game-icon"'), '准备页和游戏顶栏应内嵌项目图标');
 assert(css.includes('.setup-game-icon { width: 64px; height: 64px; flex: 0 0 64px;') && css.includes('.header-game-icon { width: 32px; height: 32px;'), '开始页项目图标应为64px，游戏顶栏图标应保持32px');
 assert(html.indexOf('id="backToGame"') < html.indexOf('id="setupAboutButton"'), '返回原局应位于关于左侧');
 assert(html.includes('rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,'), '游戏页应内嵌标签页图标');
+assert(html.includes('data-runtime-mode="lan">联机对战') && !html.includes('局域网对战'), '游戏方式应统一显示为联机对战');
+assert(html.includes('12345 或 54145K') && html.includes('maxlength="7"'), '登录码输入应兼容本地五位数字和在线数字加字母');
+assert(game.includes('function applyInviteFromPageUrl()') && game.includes("params.get('port')") && game.includes("params.get('URL')") && game.includes('window.setTimeout(() => connectLan(), 0)'), '邀请URL应自动切换到联机并尝试连接');
+assert(game.includes('function parseInviteDetails') && game.includes('onrender\\.com'), '智能输入应识别Render域名和邀请链接');
+assert(game.includes('intervalMs: 1000') && network.includes('intervalMs = options.intervalMs || 1000') && network.includes('pollTimeoutMs = options.pollTimeoutMs || 35_000') && network.includes("code === 'POLL_ABORTED'") && network.includes('schedule = [1000, 2000, 4000, 8000, 15000, 30000]'), '网络客户端应使用1000ms兼容间隔、长轮询、正常取消和指数退避');
+assert(html.includes('<script src="request-retry.js"></script>') && hostHtml.includes('<script src="request-retry.js"></script>'), '游戏页和开房页应加载统一404重试模块');
+assert(network.includes('DoubleLudoRequestRetry') && hostJs.includes('DoubleLudoRequestRetry'), '游戏API和开房API应使用统一404重试模块');
+assert(retrySource.includes('...Array(10).fill(100)') && retrySource.includes('...Array(10).fill(200)') && retrySource.includes('...Array(5).fill(300)'), '404应按100/200/300ms分阶段重试');
+assert(html.includes('https://dlol.onrender.com'), '联机地址示例应使用dlol.onrender.com');
 assert(!game.includes('__doubleFlightDebug'), '发行版不应保留冒烟测试调试接口');
+
+
+assert(hostHtml.includes('双飞联机服务器-联机开房') && hostHtml.includes('DOUBLE LUDO ONLINE'), '开房页标题应使用新的双行文案');
+assert(hostHtml.includes('class="host-game-icon"') && fs.readFileSync(publicFile('host.css'),'utf8').includes('width:64px'), '开房页标题左侧应显示64px项目图标');
+assert(hostHtml.includes('>GO</button>') && hostHtml.includes('>直接进入游戏页面</a>'), '开房页应使用GO按钮和按钮化游戏入口');
+assert(hostHtml.includes('服务器空闲15分钟后会自动休眠，账号、房间、聊天和对局将在服务器休眠后删除，无法恢复。'), '账号模块下应显示服务器休眠注意事项');
+assert(!hostHtml.includes('账号密码'), '开房页不应显示“账号密码”旧文案');
+assert(hostJs.includes("'/api/account/room/export'") && hostJs.includes("'/api/account/room/import'"), '玩家开房页应支持导入导出对局');
+assert(hostJs.includes('ownerIpAddress') && hostJs.includes('showCopyPop'), '玩家开房页应显示完整IP并提供复制成功气泡');
+
+
+assert(hostHtml.includes('id="activeRoomCount"') && hostHtml.includes('id="onlinePlayerCount"'), '联机开房页应始终显示活跃房间和在线玩家数量');
+assert(hostHtml.includes('<label for="accountPassword">密码</label>'), '开房凭证输入应显示为密码');
+assert(hostHtml.includes('id="accountPassword" type="text"'), '密码应按用户要求明文显示');
+assert(/id="dashboard"[\s\S]*?<\/section>\s*<section id="serverAboutCard" class="card about-card">/.test(hostHtml), '关于模块应位于登录区和已登录区之外，登录前后都可见');
+assert(hostHtml.includes('本服务器估计最大承载量为200名在线玩家'), '关于模块应包含200名在线玩家承载提示');
+assert(hostJs.includes('refreshServerStats') && hostJs.includes("'/api/info'"), '开房页应定时读取公开服务器统计');
+assert(hostJs.includes("$('activeRoomCount')") && hostJs.includes("$('onlinePlayerCount')"), '开房页应渲染服务器统计');
+const hostCss = fs.readFileSync(publicFile('host.css'), 'utf8');
+assert(hostCss.includes('.eyebrow{font-size:12px;letter-spacing:.14em;color:var(--text)}'), 'DOUBLE LUDO ONLINE应使用普通文字颜色');
+assert(hostCss.includes('@media(max-width:560px)') && hostCss.includes('.server-stats'), '联机开房页应适配手机和窄容器');
