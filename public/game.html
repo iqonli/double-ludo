@@ -10,7 +10,6 @@
 </head>
 <body>
   <div id="setupOverlay" class="overlay">
-    <div class="setup-composite-scroll">
       <section id="setupLanChatPanel" class="lan-chat-panel setup-lan-chat-panel" aria-labelledby="setupLanChatTitle">
         <header class="lan-chat-heading">
           <h3 id="setupLanChatTitle">联机聊天</h3>
@@ -37,6 +36,7 @@
           <span class="version-badge">v0.42.2 联机</span>
           <div class="setup-header-buttons">
             <button type="button" id="backToGame" class="ghost-btn setup-back-button hidden" aria-label="返回原局">← 返回原局</button>
+            <button type="button" id="setupUiModeToggle" class="ghost-btn ui-mode-toggle">切换为手机版</button>
             <button type="button" id="setupAboutButton" class="ghost-btn about-button">关于</button>
           </div>
         </div>
@@ -64,7 +64,6 @@
           <div id="lanConnectionStatus" class="setup-summary">尚未连接。</div>
         </div>
       </section>
-
 
       <section class="setup-section hidden" id="lanWaitingSection">
         <div class="section-title"><span class="step-number">02</span><h2>等待玩家A开始</h2></div>
@@ -152,7 +151,6 @@
       </footer>
       </div>
     </section>
-    </div>
   </div>
 
   <header class="app-header">
@@ -167,6 +165,7 @@
     <div class="header-spacer"></div>
     <div class="header-actions">
       <button type="button" id="newGame" class="ghost-btn">重新开局</button>
+      <button type="button" id="gameUiModeToggle" class="ghost-btn ui-mode-toggle">切换为手机版</button>
       <button type="button" id="gameAboutButton" class="ghost-btn about-button">关于</button>
     </div>
   </header>

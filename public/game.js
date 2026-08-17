@@ -171,29 +171,88 @@
 
   const el = {};
   const byId = id => document.getElementById(id);
-
-  const localDateTimeFormatter = new Intl.DateTimeFormat(undefined, {
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
-  });
-
-  function parseServerDate(value) {
-    const raw = String(value || '').trim();
-    if (!raw) return null;
-    const normalized = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(raw)
-      ? `${raw.replace(' ', 'T')}Z`
-      : raw;
-    const date = new Date(normalized);
-    return Number.isFinite(date.getTime()) ? date : null;
-  }
-
-  function formatServerTimeLocal(value) {
-    const date = parseServerDate(value);
-    return date ? localDateTimeFormatter.format(date) : String(value || '');
-  }
   const delay = ms => new Promise(resolve => window.setTimeout(resolve, ms));
   const cloneData = value => JSON.parse(JSON.stringify(value));
 
+  const UI_MODE_STORAGE_KEY = 'doubleFlightUiMode';
+  const MOBILE_UA_RE = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i;
+  let uiMode = 'desktop';
+  let uiPageObserver = null;
+
+  function defaultUiModeFromUa() {
+    const ua = String(navigator.userAgent || '');
+    return MOBILE_UA_RE.test(ua) ? 'mobile' : 'desktop';
+  }
+
+  function loadUiMode() {
+    try {
+      const saved = localStorage.getItem(UI_MODE_STORAGE_KEY);
+      if (saved === 'mobile' || saved === 'desktop') return saved;
+    } catch (_) {}
+    return defaultUiModeFromUa();
+  }
+
+  function visibleStandaloneDialog() {
+    return [el.defeatModal, el.undoRequestModal, el.victoryModal, el.aiControlModal, el.aboutModal]
+      .find(node => node && !node.classList.contains('hidden')) || null;
+  }
+
+  function syncUiPageState() {
+    if (!document.body) return;
+    const mobile = uiMode === 'mobile';
+    const dialogOpen = mobile && Boolean(visibleStandaloneDialog());
+    const setupOpen = mobile && !dialogOpen && Boolean(el.setupOverlay && !el.setupOverlay.classList.contains('hidden'));
+    document.body.classList.toggle('mobile-dialog-page', dialogOpen);
+    document.body.classList.toggle('mobile-setup-page', setupOpen);
+  }
+
+  function updateUiModeButtons() {
+    const label = uiMode === 'mobile' ? '切换为电脑版' : '切换为手机版';
+    [el.setupUiModeToggle, el.gameUiModeToggle].forEach(button => {
+      if (!button) return;
+      button.textContent = label;
+      button.setAttribute('aria-label', label);
+    });
+  }
+
+  function applyUiMode(nextMode, persist = false) {
+    uiMode = nextMode === 'mobile' ? 'mobile' : 'desktop';
+    document.body.classList.toggle('ui-mobile', uiMode === 'mobile');
+    document.body.classList.toggle('ui-desktop', uiMode === 'desktop');
+    document.documentElement.dataset.uiMode = uiMode;
+    updateUiModeButtons();
+    syncUiPageState();
+    if (persist) {
+      try { localStorage.setItem(UI_MODE_STORAGE_KEY, uiMode); } catch (_) {}
+    }
+  }
+
+  function toggleUiMode() {
+    applyUiMode(uiMode === 'mobile' ? 'desktop' : 'mobile', true);
+  }
+
+  function initUiPageObserver() {
+    if (uiPageObserver) uiPageObserver.disconnect();
+    uiPageObserver = new MutationObserver(syncUiPageState);
+    [el.setupOverlay, el.defeatModal, el.undoRequestModal, el.victoryModal, el.aiControlModal, el.aboutModal]
+      .filter(Boolean)
+      .forEach(node => uiPageObserver.observe(node, { attributes: true, attributeFilter: ['class'] }));
+  }
+
+  function parseServerUtcTime(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return null;
+    const normalized = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw)
+      ? raw
+      : raw.replace(' ', 'T') + 'Z';
+    const date = new Date(normalized);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  function formatServerTimeLocal(value) {
+    const date = parseServerUtcTime(value);
+    return date ? date.toLocaleString() : String(value || '');
+  }
 
   const randomBetween = (minimum, maximum) => minimum + Math.random() * (maximum - minimum);
 
@@ -258,12 +317,10 @@
 
   function initChatPanelResizers() {
     chatPanelRefs().forEach(ref => {
-      // The setup chat is one fixed section of the combined setup card.
-      // It deliberately has no independent resize state or drag handle.
-      if (ref.panel.id === 'setupLanChatPanel') {
+      if (ref.panel === el.setupLanChatPanel) {
         ref.panel.querySelector('.lan-chat-resize-handle')?.remove();
         ref.panel.style.height = '800px';
-        try { localStorage.removeItem('doubleFlightChatHeight:setupLanChatPanel'); } catch (_) {}
+        try { localStorage.removeItem(`doubleFlightChatHeight:${ref.panel.id}`); } catch (_) {}
         return;
       }
       if (ref.panel.querySelector('.lan-chat-resize-handle')) return;
@@ -1475,6 +1532,8 @@
       turnLabel: byId('turnLabel'),
       networkBadge: byId('networkBadge'),
       newGame: byId('newGame'),
+      setupUiModeToggle: byId('setupUiModeToggle'),
+      gameUiModeToggle: byId('gameUiModeToggle'),
       setupAboutButton: byId('setupAboutButton'),
       gameAboutButton: byId('gameAboutButton'),
       aboutModal: byId('aboutModal'),
@@ -1563,6 +1622,9 @@
       gameLog: byId('gameLog'),
       logCount: byId('logCount')
     });
+
+    applyUiMode(loadUiMode(), false);
+    initUiPageObserver();
 
     lanClient = new window.DoubleFlightNetwork.LanClient({
       intervalMs: 1000,
@@ -1970,6 +2032,8 @@
     const openAbout = () => el.aboutModal.classList.remove('hidden');
     const closeAbout = () => el.aboutModal.classList.add('hidden');
     el.newGame.addEventListener('click', resetToSetup);
+    el.setupUiModeToggle.addEventListener('click', toggleUiMode);
+    el.gameUiModeToggle.addEventListener('click', toggleUiMode);
     el.setupAboutButton.addEventListener('click', openAbout);
     el.gameAboutButton.addEventListener('click', openAbout);
     el.closeAboutButton.addEventListener('click', closeAbout);

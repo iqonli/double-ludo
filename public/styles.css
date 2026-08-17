@@ -1355,185 +1355,232 @@ body.resizing-chat-panel, body.resizing-chat-panel * { cursor: ns-resize !import
 }
 
 
-/* v0.42.2 setup composite scroller.
-   The online chat and the setup card are sibling cards inside one native
-   wheel/touch scroll surface. Their visual shells remain independent, while
-   the overlay no longer creates competing scroll containers. */
-#setupOverlay {
-  overflow: hidden !important;
-  place-items: center;
+/* v0.42.2 setup card: one visual shell, one scroll surface.
+   The outer card keeps the original size, radius and shadow. All setup content,
+   including the title and footer, belongs to the same native wheel/touch scroller. */
+#setupOverlay .setup-card {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
+  overscroll-behavior: contain;
 }
-#setupOverlay .setup-composite-scroll {
-  box-sizing: border-box;
-  width: min(760px, 100%);
-  max-height: calc(100dvh - 48px);
+#setupOverlay .setup-scroll-surface {
   min-width: 0;
+  min-height: 0;
+  max-height: inherit;
   overflow-x: hidden;
   overflow-y: auto;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-content: start;
-  gap: 12px;
   overscroll-behavior-y: contain;
   scrollbar-width: thin;
   scrollbar-gutter: stable;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y pinch-zoom;
 }
-#setupOverlay .setup-composite-scroll::-webkit-scrollbar { width: 10px; }
-#setupOverlay .setup-composite-scroll::-webkit-scrollbar-track { background: transparent; }
-#setupOverlay .setup-composite-scroll::-webkit-scrollbar-thumb {
+#setupOverlay .setup-scroll-surface::-webkit-scrollbar { width: 10px; }
+#setupOverlay .setup-scroll-surface::-webkit-scrollbar-track { background: var(--panel-2); }
+#setupOverlay .setup-scroll-surface::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
   border-radius: 999px;
   background: var(--border-strong);
   background-clip: padding-box;
 }
-#setupOverlay .setup-card {
-  grid-area: auto;
-  width: 100%;
-  max-height: none;
-  justify-self: stretch;
-  overflow: hidden;
-  display: block;
-}
-#setupOverlay .setup-scroll-surface {
-  max-height: none;
-  overflow: visible;
-  display: block;
-  scrollbar-gutter: auto;
-  touch-action: pan-y pinch-zoom;
-}
 #setupOverlay .setup-heading,
 #setupOverlay .setup-section,
-#setupOverlay .setup-footer,
-#setupOverlay .setup-lan-chat-panel {
+#setupOverlay .setup-footer {
   touch-action: pan-y pinch-zoom;
 }
-#setupOverlay .setup-heading,
-#setupOverlay .setup-footer {
-  position: relative;
-  inset: auto;
+body:not(.lan-mode) #setupOverlay:not(.hidden) {
+  overflow: hidden;
 }
-#setupOverlay .setup-lan-chat-panel {
-  display: none;
-  position: relative;
-  inset: auto;
-  transform: none;
-  width: 100%;
-  min-width: 0;
-  max-width: none;
-  max-height: min(500px, calc(100dvh - 96px));
-  margin: 0;
-  align-self: stretch;
-  box-shadow: none;
+
+/* v0.42.2 setup-chat join + explicit mobile/desktop page mode */
+.ui-mode-toggle { min-width: 110px; white-space: nowrap; }
+
+/* The setup chat and setup card remain siblings. In LAN mode they visually join
+   into one vertical surface and scroll together in the overlay/page scroller. */
+body.lan-mode #setupOverlay:not(.hidden) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0;
 }
 body.lan-mode #setupOverlay:not(.hidden) .setup-lan-chat-panel {
   display: grid;
-}
-body.lan-mode #setupOverlay:not(.hidden) {
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0;
-}
-body.lan-mode #setupOverlay:not(.hidden) .setup-lan-chat-panel::before {
-  box-shadow: var(--shadow);
-}
-
-@media (max-width: 620px), (max-height: 720px) {
-  #setupOverlay { padding: 8px; }
-  #setupOverlay .setup-composite-scroll {
-    width: 100%;
-    max-height: calc(100dvh - 16px);
-    gap: 8px;
-  }
-  #setupOverlay .setup-card { border-radius: 13px; }
-  #setupOverlay .setup-lan-chat-panel {
-    max-height: min(440px, calc(100dvh - 56px));
-  }
-}
-
-@media (max-width: 380px), (max-height: 560px) {
-  #setupOverlay { padding: 6px; }
-  #setupOverlay .setup-composite-scroll {
-    max-height: calc(100dvh - 12px);
-    gap: 6px;
-  }
-  #setupOverlay .setup-lan-chat-panel {
-    min-height: 220px;
-    max-height: min(390px, calc(100dvh - 40px));
-  }
-}
-body.lan-mode #setupOverlay:not(.hidden) .setup-composite-scroll > .setup-lan-chat-panel {
-  display: grid;
   position: relative;
-  left: auto;
-  right: auto;
-  top: auto;
-  bottom: auto;
   inset: auto;
   transform: none;
-  width: 100%;
-  min-width: 0;
-  max-width: none;
-  max-height: min(500px, calc(100dvh - 96px));
-  margin: 0;
-  align-self: stretch;
-}
-@media (max-width: 620px), (max-height: 720px) {
-  body.lan-mode #setupOverlay:not(.hidden) .setup-composite-scroll > .setup-lan-chat-panel {
-    margin: 0;
-    max-height: min(440px, calc(100dvh - 56px));
-  }
-}
-
-
-/* v0.42.2 setup chat joined-card adjustment.
-   The chat and setup sections remain sibling elements. Their common parent
-   supplies the single visual card shell only while online setup is active. */
-body.lan-mode #setupOverlay:not(.hidden) .setup-composite-scroll {
-  gap: 0;
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  background: var(--panel-solid);
-  box-shadow: var(--shadow);
-}
-body.lan-mode #setupOverlay:not(.hidden) .setup-composite-scroll > .setup-lan-chat-panel {
-  box-sizing: border-box;
+  flex: 0 0 800px;
+  width: min(760px, 100%);
   height: 800px !important;
   min-height: 800px;
-  max-height: none !important;
+  max-height: none;
   margin: 0;
-  border: 0;
-  border-radius: 0;
-  border-bottom: 1px solid var(--border);
-  background: transparent;
+  border-radius: 18px 18px 0 0;
   box-shadow: none;
 }
-body.lan-mode #setupOverlay:not(.hidden) .setup-composite-scroll > .setup-lan-chat-panel::before {
-  border: 0;
-  border-radius: 0;
-  background: var(--panel-2);
-  box-shadow: none;
+body.lan-mode #setupOverlay:not(.hidden) .setup-lan-chat-panel::before {
+  border-radius: 18px 18px 0 0;
+  border-bottom-color: transparent;
+  box-shadow: var(--shadow);
 }
-body.lan-mode #setupOverlay:not(.hidden) .setup-composite-scroll > .setup-lan-chat-panel > .lan-chat-resize-handle {
-  display: none !important;
+body.lan-mode #setupOverlay:not(.hidden) .setup-card {
+  flex: 0 0 auto;
+  width: min(760px, 100%);
+  max-height: none;
+  border-top-color: var(--border);
+  border-radius: 0 0 18px 18px;
+  box-shadow: var(--shadow);
 }
-body.lan-mode #setupOverlay:not(.hidden) .setup-composite-scroll > .setup-card {
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
+body.lan-mode #setupOverlay:not(.hidden) .setup-lan-chat-panel + .setup-card {
+  margin-top: -1px;
+}
+.setup-lan-chat-panel .lan-chat-resize-handle { display: none !important; }
+
+/* Desktop presentation keeps the established floating overlay/dialog behavior. */
+body.ui-desktop #setupOverlay:not(.hidden) {
+  overflow-y: auto;
+}
+body.ui-desktop:not(.lan-mode) #setupOverlay:not(.hidden) {
+  display: grid;
+  place-items: center;
 }
 
-@media (max-width: 620px), (max-height: 720px) {
-  body.lan-mode #setupOverlay:not(.hidden) .setup-composite-scroll {
-    border-radius: 13px;
+/* Mobile mode uses page navigation instead of translucent overlays.
+   Underlying game/setup DOM is hidden while the active standalone page is shown. */
+body.ui-mobile.mobile-setup-page > .app-header,
+body.ui-mobile.mobile-setup-page > #workspace,
+body.ui-mobile.mobile-setup-page > #lanSpiritLayer,
+body.ui-mobile.mobile-dialog-page > .app-header,
+body.ui-mobile.mobile-dialog-page > #workspace,
+body.ui-mobile.mobile-dialog-page > #lanSpiritLayer,
+body.ui-mobile.mobile-dialog-page > #setupOverlay {
+  display: none !important;
+}
+
+body.ui-mobile #setupOverlay:not(.hidden) {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  width: 100%;
+  height: 100dvh;
+  min-height: 100dvh;
+  padding: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  background: var(--bg);
+  backdrop-filter: none;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y pinch-zoom;
+}
+body.ui-mobile:not(.lan-mode) #setupOverlay:not(.hidden) {
+  display: block;
+}
+body.ui-mobile #setupOverlay .setup-card {
+  width: 100%;
+  max-width: none;
+  max-height: none;
+  min-height: 100dvh;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--panel-solid);
+}
+body.ui-mobile #setupOverlay .setup-scroll-surface {
+  max-height: none;
+  overflow: visible;
+  scrollbar-gutter: auto;
+}
+body.ui-mobile #setupOverlay .setup-heading {
+  padding-top: max(12px, env(safe-area-inset-top));
+}
+body.ui-mobile #setupOverlay .setup-footer {
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+body.ui-mobile.lan-mode #setupOverlay:not(.hidden) .setup-lan-chat-panel {
+  width: 100%;
+  max-width: none;
+  flex-basis: 800px;
+  height: 800px !important;
+  min-height: 800px;
+  border-radius: 0;
+}
+body.ui-mobile.lan-mode #setupOverlay:not(.hidden) .setup-lan-chat-panel::before {
+  border-left: 0;
+  border-right: 0;
+  border-top: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+body.ui-mobile.lan-mode #setupOverlay:not(.hidden) .setup-card {
+  min-height: auto;
+  border-radius: 0;
+  margin-top: 0;
+}
+
+body.ui-mobile .defeat-modal:not(.hidden) {
+  position: fixed;
+  inset: 0;
+  z-index: 1600;
+  display: block;
+  width: 100%;
+  height: 100dvh;
+  padding: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: var(--panel-solid);
+  backdrop-filter: none;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y pinch-zoom;
+}
+body.ui-mobile .defeat-modal:not(.hidden) .defeat-card,
+body.ui-mobile .defeat-modal:not(.hidden) .communication-modal-card,
+body.ui-mobile .defeat-modal:not(.hidden) .about-card,
+body.ui-mobile .defeat-modal:not(.hidden) .ai-control-card {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  min-height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding:
+    max(22px, env(safe-area-inset-top))
+    max(18px, env(safe-area-inset-right))
+    max(22px, env(safe-area-inset-bottom))
+    max(18px, env(safe-area-inset-left));
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--panel-solid);
+  text-align: left;
+  align-content: start;
+}
+body.ui-mobile .defeat-modal:not(.hidden) .defeat-card > .about-copy,
+body.ui-mobile .defeat-modal:not(.hidden) .defeat-card > .model-select-label {
+  overflow: visible;
+}
+body.ui-mobile .defeat-modal:not(.hidden) .modal-lan-chat-panel {
+  min-height: 360px;
+  max-height: none;
+}
+body.ui-mobile .defeat-modal:not(.hidden) .defeat-actions {
+  width: 100%;
+  margin-top: auto;
+  padding-top: 14px;
+  padding-bottom: max(4px, env(safe-area-inset-bottom));
+}
+
+@media (max-width: 520px) {
+  .ui-mode-toggle { min-width: 0; }
+  body.ui-mobile #setupOverlay .setup-header-buttons {
+    grid-template-columns: 1fr 1fr;
   }
-  body.lan-mode #setupOverlay:not(.hidden) .setup-composite-scroll > .setup-lan-chat-panel {
-    height: 800px !important;
-    min-height: 800px;
-    max-height: none !important;
-  }
-  body.lan-mode #setupOverlay:not(.hidden) .setup-composite-scroll > .setup-card {
-    border-radius: 0;
+  body.ui-mobile #setupOverlay .setup-back-button:not(.hidden) {
+    grid-column: 1 / -1;
   }
 }

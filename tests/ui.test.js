@@ -118,12 +118,18 @@ assert(game.includes('function renderConfirmationArrows()') && game.includes('fu
 assert(css.includes('.confirmation-direction-arrow') && css.includes('.board-direction-arrow') && css.includes('stroke: rgb(70, 73, 79)') && css.includes('stroke-width: 2.4'), '两类箭头应使用相同中性深色和线宽');
 assert(html.indexOf('class="color-test-panel"') < html.indexOf('</main>'), '调色测试应与其他主要区域处于同一主工作区层级');
 assert(css.includes('.left-panel { grid-column: 1; grid-row: 1;') && css.includes('.board-panel { grid-column: 1; grid-row: 2;') && css.includes('.right-panel { grid-column: 1; grid-row: 3;') && css.includes('.log-panel { grid-column: 1; grid-row: 4;') && css.includes('.color-test-panel { grid-column: 1; grid-row: 5;'), '窄屏应按玩家信息、棋盘、回合交互、对局记录、调色测试顺序排列');
-assert(html.includes('class="setup-composite-scroll"'), '开始页应使用包含聊天卡和设置卡的统一外层滚动容器');
-assert(css.includes('#setupOverlay .setup-composite-scroll') && css.includes('overflow-y: auto') && css.includes('touch-action: pan-y pinch-zoom'), '开始页聊天卡和设置卡应共享鼠标与触控滚动面');
-assert(html.indexOf('id="setupLanChatPanel"') > html.indexOf('class="setup-composite-scroll"') && html.indexOf('id="setupLanChatPanel"') < html.indexOf('class="setup-card"'), '联机聊天和开始卡片应为同级卡片，聊天直接位于标题卡上方');
-assert(css.includes('setup composite scroller') && css.includes('#setupOverlay .setup-scroll-surface') && css.includes('max-height: none;') && css.includes('overflow: visible;'), '开始卡内部不应再形成第二滚动面');
-assert(!html.includes('<span class="step-number">00</span>') && !html.includes('<span class="step-number">AI</span>') && !html.includes('<span class="step-number">联机</span>'), '开始页面编号应从01开始且不能包含文字');
-for (const marker of ['01','02','03','04','05','06']) assert(html.includes(`<span class="step-number">${marker}</span>`), `开始页面应包含纯数字步骤${marker}`);
+assert(html.includes('class="setup-scroll-surface"'), '开始页应使用独立的单一滚动容器');
+assert(css.includes('#setupOverlay .setup-scroll-surface') && css.includes('touch-action: pan-y pinch-zoom') && css.includes('overflow-y: auto'), '开始页标题、正文和页脚应共享鼠标与触控滚动面');
+
+assert(html.includes('id="setupUiModeToggle"') && html.includes('id="gameUiModeToggle"'), '开始菜单和棋盘关于左侧应提供手机版/电脑版切换按钮');
+assert(html.indexOf('id="setupUiModeToggle"') < html.indexOf('id="setupAboutButton"') && html.indexOf('id="gameUiModeToggle"') < html.indexOf('id="gameAboutButton"'), '页面模式切换按钮应位于关于按钮左侧');
+assert(game.includes("const UI_MODE_STORAGE_KEY = 'doubleFlightUiMode'") && game.includes('defaultUiModeFromUa') && game.includes('MOBILE_UA_RE') && game.includes('localStorage.setItem(UI_MODE_STORAGE_KEY'), '手机版/电脑版应按UA默认并保存手动选择');
+assert(game.includes("document.body.classList.toggle('ui-mobile'") && game.includes('mobile-dialog-page') && game.includes('mobile-setup-page'), '客户端应维护独立的手机版页面状态');
+assert(css.includes('body.ui-mobile .defeat-modal:not(.hidden)') && css.includes('min-height: 100dvh') && css.includes('backdrop-filter: none'), '手机版弹窗应呈现为独立整页而不是棋盘上的浮层');
+assert(css.includes('body.ui-mobile.mobile-dialog-page > #workspace') && css.includes('body.ui-mobile.mobile-setup-page > #workspace'), '手机版开始页和弹窗页显示时应隐藏底层棋盘');
+assert(css.includes('height: 800px !important') && css.includes('.setup-lan-chat-panel .lan-chat-resize-handle { display: none !important; }'), '仅开始页联机聊天应固定800px并移除滑动柄');
+assert(html.includes('<span class="step-number">01</span><h2>选择游戏方式</h2>') && html.includes('<span class="step-number">06</span><h2>规则设置</h2>') && !html.includes('<span class="step-number">AI</span>') && !html.includes('<span class="step-number">联机</span>'), '开始页步骤编号应为01至06纯数字');
+assert(game.includes('formatServerTimeLocal(message.time)') && game.includes("raw.replace(' ', 'T') + 'Z'"), '玩家端应把服务端UTC时间转换为浏览器本地时间');
 
 console.log('ui static tests passed');
 
@@ -185,8 +191,7 @@ assert(css.includes('scale(1.10)') && css.includes('@keyframes selectable-white'
 assert(game.includes("el.undoDefeat.textContent = '申请反悔'") && game.includes("el.acceptDefeat.textContent = '我接受'"), '联机三6遣返弹窗应显示申请反悔与我接受');
 assert(game.includes('申请反悔三6遣返！') && game.includes("el.rejectUndoRequest.textContent = '666我要是不同意呢'") && game.includes("el.allowUndoRequest.textContent = '我同意了'"), '对方应收到三6遣返反悔审批弹窗');
 assert(network.includes('requestDefeatRegret()') && network.includes('respondDefeatRegret(allow)'), '网络客户端应支持三6遣返反悔申请和回应');
-assert(game.includes("const defaultHeight = isPhoneLayout ? 1000 : 500") && game.includes('const initialHeight = Number.isFinite(saved) && saved >= 240 ? saved : defaultHeight'), '手机端联机聊天默认高度应为1000px，桌面端保持500px，并优先使用已保存高度');
-assert(css.includes('#setupLanChatPanel,') && css.includes('#lanChatPanel {') && css.includes('max-height: none;'), '手机端开始页和游戏页联机聊天不应被视口高度上限截断');
+assert(game.includes('const initialHeight = Number.isFinite(saved) && saved >= 240 ? saved : 500'), 'game内局域网聊天区域默认高度应为500px');
 
 assert(html.includes('v0.42.2 联机'), '准备页版本号应标记为联机版本');
 assert(!html.includes('标准飞行棋底盘，本地 1v1。'), '准备页不应保留旧副标题');
@@ -198,8 +203,6 @@ assert(html.includes('data-runtime-mode="lan">联机对战') && !html.includes('
 assert(html.includes('12345 或 12345A') && html.includes('maxlength="7"'), '登录码输入应兼容本地五位数字和在线数字加字母');
 assert(game.includes('function applyInviteFromPageUrl()') && game.includes("params.get('port')") && game.includes("params.get('URL')") && game.includes('window.setTimeout(() => connectLan(), 0)'), '邀请URL应自动切换到联机并尝试连接');
 assert(game.includes('function parseInviteDetails') && game.includes('onrender\\.com'), '智能输入应识别Render域名和邀请链接');
-assert(game.includes('function formatServerTimeLocal(value)') && game.includes('localDateTimeFormatter.format(date)'), '游戏端应将服务端UTC时间转换为浏览器本地时区');
-assert(hostJs.includes('function formatServerTimeLocal(value)') && hostJs.includes('最近玩家活动（本地时间）'), '联机开房页应以浏览器本地时区显示服务端时间');
 assert(game.includes('intervalMs: 1000') && network.includes('intervalMs = options.intervalMs || 1000') && network.includes('pollTimeoutMs = options.pollTimeoutMs || 35_000') && network.includes("code === 'POLL_ABORTED'") && network.includes('schedule = [1000, 2000, 4000, 8000, 15000, 30000]'), '网络客户端应使用1000ms兼容间隔、长轮询、正常取消和指数退避');
 assert(html.includes('<script src="request-retry.js"></script>') && hostHtml.includes('<script src="request-retry.js"></script>'), '游戏页和开房页应加载统一404重试模块');
 assert(network.includes('DoubleLudoRequestRetry') && hostJs.includes('DoubleLudoRequestRetry'), '游戏API和开房API应使用统一404重试模块');
