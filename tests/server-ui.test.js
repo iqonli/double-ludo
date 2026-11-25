@@ -84,7 +84,7 @@ test('在线登录限速在校验登录码前执行且窗口为1秒', () => {
 test('Render服务固定为dlol且管理页缺少密码时给出明确配置提示', () => {
   const renderYaml = fs.readFileSync(path.join(root, 'render.yaml'), 'utf8');
   assert(renderYaml.includes('name: dlol'));
-  assert(renderYaml.includes('value: https://dlol.onrender.com'));
+  assert(renderYaml.includes('value: https://oldl.onrender.com'));
   assert(serverSource.includes('ADMIN_NOT_CONFIGURED'));
   assert(serverSource.includes('adminNotConfiguredHtml'));
   assert(adminHtml.includes('<script src="/request-retry.js"></script>'));

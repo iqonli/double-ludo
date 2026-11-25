@@ -10,7 +10,7 @@ Original game by PerryDing 2025-07-23
 
 本项目使用[MIT许可证](LICENSE)。Copyright © 2026 IQ Online Studio.
 
-[点击此处打开联机服务器网站](https://dlol.onrender.com/) *提示：本服务器部署于免费Render服务，服务器空闲15分钟后会自动休眠。休眠后，首次启动需要约1分钟时间。*
+[点击此处打开联机服务器网站](https://oldl.onrender.com/) *提示：本服务器部署于免费Render服务，服务器空闲15分钟后会自动休眠。休眠后，首次启动需要约1分钟时间。*
 
 [点击此处打开github.io的演示(无服务器联机功能)](https://iqonli.github.io/double-ludo/)
 
@@ -56,7 +56,7 @@ Original game by PerryDing 2025-07-23
 
 ### 优先选择在线游玩
 
-[点击此处打开联机服务器网站](https://dlol.onrender.com/) *提示：本服务器部署于免费Render服务，服务器空闲15分钟后会自动休眠。休眠后，首次启动需要约1分钟时间。*
+[点击此处打开联机服务器网站](https://oldl.onrender.com/) *提示：本服务器部署于免费Render服务，服务器空闲15分钟后会自动休眠。休眠后，首次启动需要约1分钟时间。*
 
 [点击此处打开github.io的演示(无服务器联机功能)](https://iqonli.github.io/double-ludo/)
 
@@ -89,7 +89,7 @@ cd double-ludo
 邀请链接格式类似：
 
 ```text
-https://dlol.onrender.com/game.html?port=12345A&URL=https%3A%2F%2Fdlol.onrender.com
+https://oldl.onrender.com/game.html?port=12345A&URL=https%3A%2F%2Foldl.onrender.com
 ```
 
 打开后会自动切换到联机页面并尝试连接。游戏、开房和管理API遇到短暂404时，会按100ms×10、200ms×10、300ms×5的顺序重试，最后仍失败才显示404。

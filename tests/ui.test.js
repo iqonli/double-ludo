@@ -207,7 +207,7 @@ assert(game.includes('intervalMs: 1000') && network.includes('intervalMs = optio
 assert(html.includes('<script src="request-retry.js"></script>') && hostHtml.includes('<script src="request-retry.js"></script>'), '游戏页和开房页应加载统一404重试模块');
 assert(network.includes('DoubleLudoRequestRetry') && hostJs.includes('DoubleLudoRequestRetry'), '游戏API和开房API应使用统一404重试模块');
 assert(retrySource.includes('...Array(10).fill(100)') && retrySource.includes('...Array(10).fill(200)') && retrySource.includes('...Array(5).fill(300)'), '404应按100/200/300ms分阶段重试');
-assert(html.includes('https://dlol.onrender.com'), '联机地址示例应使用dlol.onrender.com');
+assert(html.includes('https://oldl.onrender.com'), '联机地址示例应使用oldl.onrender.com');
 assert(!game.includes('__doubleFlightDebug'), '发行版不应保留冒烟测试调试接口');
 
 

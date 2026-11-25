@@ -15,7 +15,7 @@
 
 ## v0.42.1 Render适配热修（服务名dlol）
 
-- Render Blueprint服务名固定为`dlol`，默认公开地址为`https://dlol.onrender.com`。
+- Render Blueprint服务名固定为`dlol`，默认公开地址为`https://oldl.onrender.com`。
 - 游戏、账号开房和管理API加入分阶段404重试：100ms×10、200ms×10、300ms×5。
 - 旧兼容轮询间隔从500ms调整为1000ms，25秒长轮询保持不变。
 - 在线模式未配置`ADMIN_PASSWORD`时，`/admin`显示明确配置说明，不再返回伪装404。

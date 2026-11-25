@@ -12,7 +12,7 @@ services:
       - key: ONLINE_MODE
         value: "true"
       - key: PUBLIC_BASE_URL
-        value: https://dlol.onrender.com
+        value: https://oldl.onrender.com
       - key: ALLOWED_ORIGINS
         value: https://iqonli.github.io
       - key: ALLOW_FILE_ORIGIN

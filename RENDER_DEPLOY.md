@@ -35,7 +35,7 @@ dlol
 Render服务名与GitHub仓库名相互独立：仓库可以继续叫`double-ludo`，`render.yaml`中的服务名固定为`dlol`。若`dlol`这个全局服务名可用，公网地址就是：
 
 ```text
-https://dlol.onrender.com
+https://oldl.onrender.com
 ```
 
 如果你此前已经创建了其他名称的Render服务，仅向GitHub推送代码不会自动更换旧域名。需要在Render中把服务重命名为`dlol`，或者删除旧服务后通过Blueprint重新创建。若`dlol`已经被其他Render用户占用，则无法仅靠项目代码取得该域名。
@@ -43,19 +43,19 @@ https://dlol.onrender.com
 根路径是玩家开房页：
 
 ```text
-https://dlol.onrender.com/
+https://oldl.onrender.com/
 ```
 
 游戏页面是：
 
 ```text
-https://dlol.onrender.com/game.html
+https://oldl.onrender.com/game.html
 ```
 
 管理员页面是：
 
 ```text
-https://dlol.onrender.com/admin
+https://oldl.onrender.com/admin
 ```
 
 打开管理员页面时，浏览器会要求输入`ADMIN_USERNAME`和`ADMIN_PASSWORD`。默认用户名是`admin`。
@@ -91,7 +91,7 @@ ALLOW_FILE_ORIGIN=true
 可选变量：
 
 ```text
-PUBLIC_BASE_URL=https://dlol.onrender.com
+PUBLIC_BASE_URL=https://oldl.onrender.com
 ROOM_IDLE_TTL_MS=900000
 LONG_POLL_TIMEOUT_MS=25000
 ```
@@ -123,7 +123,7 @@ ALLOW_FILE_ORIGIN=true
 5. 邀请链接格式类似：
 
 ```text
-https://dlol.onrender.com/game.html?port=12345A&URL=https%3A%2F%2Fdlol.onrender.com
+https://oldl.onrender.com/game.html?port=12345A&URL=https%3A%2F%2Foldl.onrender.com
 ```
 
 打开邀请链接后，`game.html`会自动切换到联机页面、填写服务器地址和登录码，并尝试连接。
